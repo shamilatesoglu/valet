@@ -1,5 +1,5 @@
 [package]
-name = "sample_cxx"
+name = "sample_exec"
 version = "0.1.0"
 std = "c++20"
 compiler_path = "clang++"

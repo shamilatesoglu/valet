@@ -16,20 +16,34 @@ struct package_t {
   std::filesystem::path compiler_path;
 };
 
-std::vector<std::filesystem::path>
-collect_source_files(std::filesystem::path const &folder) {
+std::optional<std::filesystem::path>
+find_autob(std::filesystem::path const &folder) {
+  for (auto const &entry : std::filesystem::directory_iterator(folder)) {
+    if (entry.path().extension() == ".toml") {
+      return entry.path();
+    }
+  }
+  return std::nullopt;
+}
+
+void collect_source_files(std::filesystem::path const &folder,
+                          std::vector<std::filesystem::path> &out) {
   static const std::unordered_set<std::string> source_file_extensions = {
       ".cxx", ".c", ".cpp", ".c++"};
-  std::vector<std::filesystem::path> out;
-  for (auto const &entry :
-       std::filesystem::recursive_directory_iterator(folder)) {
-    if (source_file_extensions.contains(entry.path().extension())) {
+  for (auto const &entry : std::filesystem::directory_iterator(folder)) {
+    if (entry.is_directory()) {
+      if (auto nested_autob = find_autob(entry.path())) {
+        std::cout << "Found another package: " << *nested_autob << std::endl;
+        // TODO: Figure out how to do nested packages.
+        continue;
+      }
+      collect_source_files(entry.path(), out);
+    } else if (source_file_extensions.contains(entry.path().extension())) {
       out.push_back(entry.path());
       std::cout << "Found source file: " << entry.path().generic_string()
                 << std::endl;
     }
   }
-  return out;
 }
 
 std::optional<std::filesystem::path>
@@ -58,24 +72,12 @@ bool link(package_t const &package,
     cmd << " " << obj;
   }
   cmd << " -o " << (output_folder / package.name);
-
   int ret = std::system(cmd.str().c_str());
   if (ret != 0) {
     std::cout << "Failed to link. Return code: " << ret << std::endl;
     return false;
   }
-  return false;
-}
-
-std::filesystem::path find_autob_config(std::filesystem::path const &folder) {
-  for (auto const &entry : std::filesystem::directory_iterator(folder)) {
-    if (entry.path().extension() == ".toml") {
-      std::cout << "Using autob configuration " << entry.path().generic_string()
-                << std::endl;
-      return entry.path();
-    }
-  }
-  return std::filesystem::path();
+  return true;
 }
 
 int main(int argc, char *argv[]) {
@@ -84,15 +86,19 @@ int main(int argc, char *argv[]) {
   try {
     std::filesystem::path work_folder(argv[1]);
     std::filesystem::path output_folder = work_folder / "build";
+    std::filesystem::path source_folder = work_folder / "src";
+    std::filesystem::path test_folder = work_folder / "test";
 
-    auto cfg = find_autob_config(work_folder);
-    if (cfg.empty()) {
+    auto cfg_file = find_autob(work_folder);
+    if (!cfg_file) {
       std::cout << "Cannot find autob config file under directory "
                 << work_folder << std::endl;
       return 1;
     }
+    std::cout << "Using autob configuration " << cfg_file->generic_string()
+              << std::endl;
 
-    auto cfg_tbl = toml::parse_file(cfg.generic_string());
+    auto cfg_tbl = toml::parse_file(cfg_file->generic_string());
     auto const &package_toml = cfg_tbl["package"];
     package_t package{
         package_toml["name"].value_or<std::string>(""),
@@ -103,7 +109,8 @@ int main(int argc, char *argv[]) {
 
     std::filesystem::create_directory(output_folder);
 
-    auto source_files = collect_source_files(work_folder);
+    std::vector<std::filesystem::path> source_files;
+    collect_source_files(source_folder, source_files);
     std::vector<std::filesystem::path> obj_files;
     for (auto const &src : source_files) {
       std::cout << "Compiling: " << src.generic_string() << std::endl;

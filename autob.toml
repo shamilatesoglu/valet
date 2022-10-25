@@ -1,0 +1,5 @@
+[package]
+name = "autob"
+version = "0.1.0"
+std = "c++20"
+compiler_path = "clang++"
