@@ -225,7 +225,7 @@ int main(int argc, char *argv[]) {
   try {
     stdfs::path package_folder(argv[1]);
     stdfs::path output_folder = package_folder / "build";
-    if (build(package_folder, output_folder)) {
+    if (build(package_folder, output_folder)) { // TODO: Spew out compile_commands.json
       spdlog::info("Success.");
     }
   } catch (const toml::parse_error &err) {
