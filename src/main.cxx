@@ -7,20 +7,36 @@
 #include <unordered_set>
 #include <vector>
 
-#include "../third_party/spdlog/spdlog.h"
-#include "../third_party/tomlplusplus/toml.hpp"
+#include <spdlog/spdlog.h>
+#include <tomlplusplus/toml.hpp>
+
+namespace stdfs = std::filesystem;
+
+enum package_type {
+  application,
+  static_library,
+};
+
+struct dependency_info_t {
+  std::string name;
+  stdfs::path path;
+  std::optional<std::string> version = std::nullopt;
+};
 
 struct package_t {
   std::string name;
   std::string version;
   std::string std;
-  std::filesystem::path compiler_path;
-  std::vector<std::filesystem::path> include_paths;
+  package_type type;
+  stdfs::path compiler_path;
+  std::vector<stdfs::path> public_includes;
+  std::vector<stdfs::path> includes;
+  std::vector<dependency_info_t> dependencies; // TODO: Figure this out
+  std::vector<package_t> resolved_dependencies;
 };
 
-std::optional<std::filesystem::path>
-find_autob(std::filesystem::path const &folder) {
-  for (auto const &entry : std::filesystem::directory_iterator(folder)) {
+std::optional<stdfs::path> find_autob(stdfs::path const &folder) {
+  for (auto const &entry : stdfs::directory_iterator(folder)) {
     if (entry.path().extension() == ".toml") {
       return entry.path();
     }
@@ -28,37 +44,43 @@ find_autob(std::filesystem::path const &folder) {
   return std::nullopt;
 }
 
-void collect_source_files(std::filesystem::path const &folder,
-                          std::vector<std::filesystem::path> &out) {
+void collect_source_files(stdfs::path const &folder,
+                          std::vector<stdfs::path> &out) {
   static const std::unordered_set<std::string> source_file_extensions = {
-      ".cxx", ".c", ".cpp", ".c++"};
-  for (auto const &entry : std::filesystem::directory_iterator(folder)) {
+      ".cxx", ".cpp", ".c++", ".c"};
+  for (auto const &entry : stdfs::directory_iterator(folder)) {
     if (entry.is_directory()) {
       if (auto nested_autob = find_autob(entry.path())) {
-        spdlog::info("Found another package: {}",
-                     nested_autob->generic_string());
         // TODO: Figure out how to do nested packages.
         continue;
       }
       collect_source_files(entry.path(), out);
-    } else if (source_file_extensions.contains(entry.path().extension())) {
-      out.push_back(entry.path());
-      spdlog::info("Found source file: {}", entry.path().generic_string());
+    } else if (source_file_extensions.contains(
+                   entry.path().extension().string())) {
+      auto source_file = stdfs::canonical(entry.path());
+      out.push_back(source_file);
+      spdlog::debug("Found source file: {}", source_file.generic_string());
     }
   }
 }
 
-std::optional<std::filesystem::path>
-compile(package_t const &package, std::filesystem::path const &output_folder,
-        std::filesystem::path const &source_file) {
-  std::filesystem::path obj_file =
+std::optional<stdfs::path> compile(package_t const &package,
+                                   stdfs::path const &output_folder,
+                                   stdfs::path const &source_file) {
+  stdfs::path obj_file =
       output_folder / (source_file.filename().string() + ".o");
   std::stringstream cmd;
-  cmd << package.compiler_path.generic_string() << " -c "
-      << source_file.generic_string() << " -std=" << package.std << " -o "
-      << obj_file.generic_string();
-  for (auto const &incl : package.include_paths) {
-    cmd << " -I" << incl.generic_string();
+  cmd << package.compiler_path.generic_string() << " -Wall"
+      << " -c " << source_file.generic_string() << " -std=" << package.std
+      << " -o " << obj_file.generic_string();
+  for (auto const &incl : package.includes) {
+    cmd << " -I\"" << incl.generic_string() << "\"";
+  }
+  for (auto const &dep : package.resolved_dependencies) {
+    for (auto const &public_include : dep.public_includes) {
+      spdlog::trace("Adding public include {} of the dependency {} of package {}", public_include.generic_string(), dep.name, package.name);
+      cmd << " -I\"" << public_include << "\"";
+    }
   }
   auto cmdstr = cmd.str();
   spdlog::debug("Compile command: {}", cmdstr);
@@ -72,16 +94,28 @@ compile(package_t const &package, std::filesystem::path const &output_folder,
   return obj_file;
 }
 
-bool link(package_t const &package,
-          std::vector<std::filesystem::path> const &obj_files,
-          std::filesystem::path const &output_folder) {
+bool link(package_t const &package, std::vector<stdfs::path> const &obj_files,
+          stdfs::path const &output_folder) {
   auto output_file_path = output_folder / package.name;
   std::stringstream cmd;
-  cmd << package.compiler_path.generic_string();
-  for (auto const &obj : obj_files) {
-    cmd << " " << obj;
+  switch (package.type) {
+  case application:
+    cmd << package.compiler_path.generic_string();
+    for (auto const &obj : obj_files) {
+      cmd << " " << obj;
+    }
+    for (auto const &dep : package.resolved_dependencies) {
+      cmd << " \"" <<  (output_folder / dep.name / dep.name).generic_string() << ".a\"";
+    }
+    cmd << " -o " << output_file_path;
+    break;
+  case static_library:
+    cmd << "ar r " << output_file_path.generic_string() + ".a";
+    for (auto const &obj : obj_files) {
+      cmd << " " << obj;
+    }
+    break;
   }
-  cmd << " -o " << output_file_path;
   auto cmdstr = cmd.str();
   spdlog::debug("Link command: {}", cmdstr);
   spdlog::info("Linking: {}", output_file_path.generic_string());
@@ -93,65 +127,101 @@ bool link(package_t const &package,
   return true;
 }
 
-package_t parse_autob(std::filesystem::path const &cfg_file_path) {
+package_t parse_autob(stdfs::path const &cfg_file_path) {
   auto cfg_tbl = toml::parse_file(cfg_file_path.generic_string());
   auto const &package_toml = cfg_tbl["package"];
-  package_t package{
-      package_toml["name"].value_or<std::string>(""),
-      package_toml["version"].value_or<std::string>(""),
-      package_toml["std"].value_or<std::string>(""),
-      package_toml["compiler_path"].value_or<std::string>(""),
-  };
-  auto const &include_paths_ref = package_toml["include_paths"];
-  if (auto path_arr = include_paths_ref.as_array()) {
+  package_t package;
+  package.name = package_toml["name"].value_or<std::string>("");
+  package.version = package_toml["version"].value_or<std::string>("");
+  package.std = package_toml["std"].value_or<std::string>("");
+  package.compiler_path =
+      package_toml["compiler_path"].value_or<std::string>("");
+  auto package_type_str = package_toml["type"].value_or<std::string>("");
+  if (package_type_str == "bin") {
+    package.type = package_type::application;
+  } else if (package_type_str == "lib") {
+    package.type = package_type::static_library;
+  }
+  auto const &includes_ref = package_toml["includes"];
+  if (auto path_arr = includes_ref.as_array()) {
     for (auto &&path_node : *path_arr) {
-      package.include_paths.push_back(*path_node.value<std::string>());
+      stdfs::path path = *path_node.value<std::string>();
+      path = cfg_file_path.parent_path() / path;
+      package.includes.push_back(path);
     }
+  }
+  auto const &public_includes_ref = package_toml["public_includes"];
+  if (auto path_arr = public_includes_ref.as_array()) {
+    for (auto &&path_node : *path_arr) {
+      stdfs::path path = *path_node.value<std::string>();
+      path = cfg_file_path.parent_path() / path;
+      package.public_includes.push_back(path);
+    }
+  }
+  if (!cfg_tbl.contains("dependencies")) {
+    return package;
+  }
+  auto const &dependencies_toml = cfg_tbl["dependencies"];
+  for (auto const &entry : *dependencies_toml.node()->as_table()) {
+    dependency_info_t dep_nfo;
+    dep_nfo.name = entry.first.str();
+    dep_nfo.path = cfg_file_path.parent_path() / entry.second.as_string()->get();
+    package.dependencies.push_back(dep_nfo);
+  }
+  return package;
+}
+
+std::optional<package_t> build(stdfs::path const &package_folder,
+                               stdfs::path const &output_folder) {
+  spdlog::trace("Entering package folder: {}", package_folder.generic_string());
+  auto cfg_file_path = find_autob(package_folder);
+  if (!cfg_file_path) {
+    spdlog::error("Cannot find autob config file under directory {}",
+                  package_folder.generic_string());
+    return std::nullopt;
+  }
+  spdlog::info("Using autob configuration {}", cfg_file_path->generic_string());
+
+  package_t package = parse_autob(*cfg_file_path);
+
+  for (auto const &dep : package.dependencies) {
+    if (auto resolved = build(dep.path, output_folder / dep.name)) {
+      package.resolved_dependencies.push_back(*resolved);
+    }
+  }
+
+  stdfs::path source_folder = stdfs::absolute(package_folder / "src");
+  stdfs::path test_folder = stdfs::absolute(package_folder / "test");
+
+  stdfs::create_directories(output_folder);
+
+  std::vector<stdfs::path> source_files;
+  collect_source_files(source_folder, source_files);
+  std::vector<stdfs::path> obj_files;
+  for (auto const &src : source_files) {
+    if (auto obj_file = compile(package, output_folder, src)) {
+      obj_files.push_back(*obj_file);
+    }
+  }
+
+  if (!link(package, obj_files, output_folder)) {
+    return std::nullopt;
   }
   return package;
 }
 
 int main(int argc, char *argv[]) {
-  spdlog::set_level(spdlog::level::debug);
+  spdlog::set_level(spdlog::level::trace);
   spdlog::set_pattern("%^[%=8l] %v%$");
   try {
-    std::filesystem::path work_folder(argv[1]);
-    std::filesystem::path output_folder = work_folder / "build";
-    std::filesystem::path source_folder = work_folder / "src";
-    std::filesystem::path test_folder = work_folder / "test";
-
-    auto cfg_file_path = find_autob(work_folder);
-    if (!cfg_file_path) {
-      spdlog::error("Cannot find autob config file under directory {}",
-                    work_folder.generic_string());
-      return 1;
-    }
-    spdlog::info("Using autob configuration {}",
-                 cfg_file_path->generic_string());
-
-    package_t package = parse_autob(*cfg_file_path);
-
-    std::filesystem::create_directory(output_folder);
-
-    std::vector<std::filesystem::path> source_files;
-    collect_source_files(source_folder, source_files);
-    std::vector<std::filesystem::path> obj_files;
-    for (auto const &src : source_files) {
-      if (auto obj_file = compile(package, output_folder, src)) {
-        obj_files.push_back(*obj_file);
-      }
-    }
-
-    if (link(package, obj_files, output_folder)) {
+    stdfs::path package_folder = stdfs::canonical(stdfs::absolute(argv[1]));
+    stdfs::path output_folder = stdfs::absolute(package_folder / "build");
+    if (build(package_folder, output_folder)) {
       spdlog::info("Success.");
-      return 0;
-    } else
-      return -1;
-
+    }
   } catch (const toml::parse_error &err) {
     spdlog::error("Parsing failed: {}", err.description());
     return 1;
   }
-
   return 0;
 }
