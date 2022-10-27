@@ -85,8 +85,8 @@ std::optional<stdfs::path> compile(package_t const &package,
     }
   }
   auto cmdstr = cmd.str();
-  spdlog::debug("Compile command: {}", cmdstr);
   spdlog::info("Compiling: {}", source_file.generic_string());
+  spdlog::debug("Compile command: {}", cmdstr);
   int ret = std::system(cmdstr.c_str());
   if (ret != 0) {
     spdlog::error("Failed to compile {}. Return code: {}",
@@ -94,6 +94,14 @@ std::optional<stdfs::path> compile(package_t const &package,
     return std::nullopt;
   }
   return obj_file;
+}
+
+void add_lib_paths(std::stringstream &cmd, package_t const& package, stdfs::path const& output_folder) {
+  for (auto const &dep : package.resolved_dependencies) {
+    cmd << " \"" << (output_folder / dep.name / dep.name).generic_string()
+        << ".a\"";
+    add_lib_paths(cmd, dep, output_folder / dep.name);
+  }
 }
 
 bool link(package_t const &package, std::vector<stdfs::path> const &obj_files,
@@ -106,10 +114,7 @@ bool link(package_t const &package, std::vector<stdfs::path> const &obj_files,
     for (auto const &obj : obj_files) {
       cmd << " " << obj;
     }
-    for (auto const &dep : package.resolved_dependencies) {
-      cmd << " \"" << (output_folder / dep.name / dep.name).generic_string()
-          << ".a\"";
-    }
+    add_lib_paths(cmd, package, output_folder); // TODO: Should not link a lib twice
     cmd << " -o " << output_file_path;
     break;
   case static_library:
@@ -120,8 +125,8 @@ bool link(package_t const &package, std::vector<stdfs::path> const &obj_files,
     break;
   }
   auto cmdstr = cmd.str();
-  spdlog::debug("Link command: {}", cmdstr);
   spdlog::info("Linking: {}", output_file_path.generic_string());
+  spdlog::debug("Link command: {}", cmdstr);
   int ret = std::system(cmdstr.c_str());
   if (ret != 0) {
     spdlog::error("Failed to link. Return code: {}", ret);
