@@ -78,8 +78,10 @@ std::optional<stdfs::path> compile(package_t const &package,
   }
   for (auto const &dep : package.resolved_dependencies) {
     for (auto const &public_include : dep.public_includes) {
-      spdlog::trace("Adding public include {} of the dependency {} of package {}", public_include.generic_string(), dep.name, package.name);
-      cmd << " -I\"" << public_include << "\"";
+      spdlog::trace(
+          "Adding public include {} of the dependency {} of package {}",
+          public_include.generic_string(), dep.name, package.name);
+      cmd << " -I" << public_include;
     }
   }
   auto cmdstr = cmd.str();
@@ -105,7 +107,8 @@ bool link(package_t const &package, std::vector<stdfs::path> const &obj_files,
       cmd << " " << obj;
     }
     for (auto const &dep : package.resolved_dependencies) {
-      cmd << " \"" <<  (output_folder / dep.name / dep.name).generic_string() << ".a\"";
+      cmd << " \"" << (output_folder / dep.name / dep.name).generic_string()
+          << ".a\"";
     }
     cmd << " -o " << output_file_path;
     break;
@@ -128,6 +131,7 @@ bool link(package_t const &package, std::vector<stdfs::path> const &obj_files,
 }
 
 package_t parse_autob(stdfs::path const &cfg_file_path) {
+  auto package_folder = cfg_file_path.parent_path();
   auto cfg_tbl = toml::parse_file(cfg_file_path.generic_string());
   auto const &package_toml = cfg_tbl["package"];
   package_t package;
@@ -146,7 +150,7 @@ package_t parse_autob(stdfs::path const &cfg_file_path) {
   if (auto path_arr = includes_ref.as_array()) {
     for (auto &&path_node : *path_arr) {
       stdfs::path path = *path_node.value<std::string>();
-      path = cfg_file_path.parent_path() / path;
+      path = stdfs::canonical(package_folder / path);
       package.includes.push_back(path);
     }
   }
@@ -154,7 +158,7 @@ package_t parse_autob(stdfs::path const &cfg_file_path) {
   if (auto path_arr = public_includes_ref.as_array()) {
     for (auto &&path_node : *path_arr) {
       stdfs::path path = *path_node.value<std::string>();
-      path = cfg_file_path.parent_path() / path;
+      path = stdfs::canonical(package_folder / path);
       package.public_includes.push_back(path);
     }
   }
@@ -165,7 +169,7 @@ package_t parse_autob(stdfs::path const &cfg_file_path) {
   for (auto const &entry : *dependencies_toml.node()->as_table()) {
     dependency_info_t dep_nfo;
     dep_nfo.name = entry.first.str();
-    dep_nfo.path = cfg_file_path.parent_path() / entry.second.as_string()->get();
+    dep_nfo.path = stdfs::canonical(package_folder / entry.second.as_string()->get());
     package.dependencies.push_back(dep_nfo);
   }
   return package;
@@ -190,8 +194,8 @@ std::optional<package_t> build(stdfs::path const &package_folder,
     }
   }
 
-  stdfs::path source_folder = stdfs::absolute(package_folder / "src");
-  stdfs::path test_folder = stdfs::absolute(package_folder / "test");
+  stdfs::path source_folder = package_folder / "src";
+  stdfs::path test_folder = package_folder / "test";
 
   stdfs::create_directories(output_folder);
 
@@ -214,8 +218,8 @@ int main(int argc, char *argv[]) {
   spdlog::set_level(spdlog::level::trace);
   spdlog::set_pattern("%^[%=8l] %v%$");
   try {
-    stdfs::path package_folder = stdfs::canonical(stdfs::absolute(argv[1]));
-    stdfs::path output_folder = stdfs::absolute(package_folder / "build");
+    stdfs::path package_folder(argv[1]);
+    stdfs::path output_folder = package_folder / "build";
     if (build(package_folder, output_folder)) {
       spdlog::info("Success.");
     }
