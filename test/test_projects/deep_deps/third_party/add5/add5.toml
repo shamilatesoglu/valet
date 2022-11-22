@@ -1,5 +1,5 @@
 [package]
-name = "add3"
+name = "add5"
 version = "0.1.0"
 std = "c++20"
 compiler_path = "clang++"
@@ -8,5 +8,5 @@ includes = ["./include/"]
 type = "lib"
 
 [dependencies]
-add1 = "../add1"
-add2 = "../add2"
+add1 = "../add2"
+add2 = "../add3"

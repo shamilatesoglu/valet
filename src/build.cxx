@@ -12,8 +12,12 @@ namespace autob
 
 int execute(Command const& command)
 {
-	spdlog::trace("Executing: {}", command.cmd);
-	return std::system(command.cmd.c_str());
+	spdlog::debug("Executing: {}", command.cmd);
+	auto ret = std::system(command.cmd.c_str());
+	if (ret) {
+		spdlog::debug("Command failed with return code {}", ret);
+	}
+	return ret;
 }
 
 void collect_source_files(std::filesystem::path const& folder,
@@ -45,34 +49,59 @@ std::optional<BuildPlan> make_build_plan(PackageGraph const& package_graph,
 	BuildPlan plan(package_graph);
 	for (auto const& package : sorted) {
 		std::vector<std::filesystem::path> source_files;
-		collect_source_files(package.folder, source_files);
+		std::filesystem::path source_folder = package.folder / "src";
+		if (!std::filesystem::exists(source_folder)) {
+			spdlog::error(
+			    "Package {} must include a 'src' folder that contains its source files",
+			    package.id());
+			return std::nullopt;
+		}
+		collect_source_files(source_folder, source_files);
 		std::vector<CompileCommand> compile_commands;
 		auto package_build_folder = build_folder / package.id();
 		for (auto const& source_file : source_files) {
 			auto cc = make_compile_command(
 			    source_file, package,
-			    /* Are 'public_includes' transitively related? */
+			    /* Should 'public_includes' have transitive relation? */
 			    package_graph.all_deps(package), package_build_folder);
 			compile_commands.push_back(cc);
 		}
-		plan.add_package(package, compile_commands);
+		plan.group(package, compile_commands, build_folder);
 	}
 	return plan;
 }
 
-void BuildPlan::add_package(Package const& package, std::vector<CompileCommand> const& package_cc)
+void BuildPlan::group(Package const& package, std::vector<CompileCommand> const& package_cc,
+		      std::filesystem::path const& build_folder)
 {
-	// This assumes package build folder is a flat
-	// tree (every object file is in the same dir).
-	auto package_build_folder = package_cc.front().obj_file.parent_path();
 	compile_commands.insert(compile_commands.begin(), package_cc.begin(), package_cc.end());
 	std::vector<std::filesystem::path> obj_files;
 	for (auto const& cc : package_cc) {
 		obj_files.push_back(cc.obj_file);
 	}
-	auto lc = make_link_command(obj_files, package, package_graph.all_deps(package),
-				    package_build_folder);
+	auto lc =
+	    make_link_command(obj_files, package, package_graph.all_deps(package), build_folder);
 	link_commands.push_back(lc);
+}
+
+bool BuildPlan::execute_plan() const
+{
+	bool success = true;
+	for (auto const& cmd : compile_commands) {
+		auto output_folder = cmd.obj_file.parent_path();
+		if (!std::filesystem::exists(output_folder))
+			std::filesystem::create_directories(output_folder);
+		spdlog::info("Compiling {}", cmd.source_file.generic_string());
+		success &= ::autob::execute(cmd) == 0;
+	}
+	for (auto const& cmd : link_commands) {
+		auto output_folder = cmd.binary_path.parent_path();
+		if (!std::filesystem::exists(output_folder))
+			std::filesystem::create_directories(output_folder);
+		spdlog::info("Linking {}", cmd.binary_path.generic_string());
+		success &= ::autob::execute(cmd) == 0;
+	}
+	return success;
 }
 
 CompileCommand make_compile_command(std::filesystem::path const& source_file,
@@ -84,17 +113,18 @@ CompileCommand make_compile_command(std::filesystem::path const& source_file,
 	std::stringstream cmd;
 	cmd << "clang++" // TODO: CompilationSettings
 	    << " -Wall"	 // TODO: CompilationOptions
+	    << " -MD"
 	    << " -c " << source_file.generic_string()
 	    << " -std=" << package.std // TODO: ABI compatibility warnings
 	    << " -o " << obj_file.generic_string();
 	for (auto const& incl : package.includes) {
-		cmd << " -I\"" << incl.generic_string() << "\"";
+		cmd << " -I" << incl.generic_string();
 	}
 	for (auto const& dep : dependencies) {
 		for (auto const& public_incl : dep.public_includes) {
-			spdlog::trace("Adding public include {} of the dependency {} of package {}",
-				      public_incl.generic_string(), dep.name, package.name);
-			cmd << " -I\"" << public_incl << "\"";
+			spdlog::trace("Adding public include {} of the dependency {} to package {}",
+				      public_incl.generic_string(), dep.id(), package.id());
+			cmd << " -I" << public_incl;
 		}
 	}
 	CompileCommand command;
@@ -106,9 +136,9 @@ CompileCommand make_compile_command(std::filesystem::path const& source_file,
 
 LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_files,
 			      Package const& package, std::vector<Package> const& dependencies,
-			      std::filesystem::path const& output_folder)
+			      std::filesystem::path const& build_folder)
 {
-	auto output_file_path = output_folder / package.id();
+	auto output_file_path = build_folder / package.id() / package.name;
 	std::stringstream cmd;
 	switch (package.type) {
 	case Application: {
@@ -117,8 +147,8 @@ LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_file
 			cmd << " " << o;
 		}
 		for (auto const& dep : dependencies) {
-			auto path = output_folder / dep.id() / (dep.name + ".a");
-			cmd << " \"" << path.generic_string() << "\"";
+			auto dep_bin_path = build_folder / dep.id() / (dep.name + ".a");
+			cmd << " " << dep_bin_path.generic_string();
 		}
 		cmd << " -o " << output_file_path.generic_string();
 		break;
@@ -134,7 +164,7 @@ LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_file
 	LinkCommand command;
 	command.cmd = cmd.str();
 	command.obj_files = obj_files;
-	command.binary = output_file_path;
+	command.binary_path = output_file_path;
 	return command;
 }
 

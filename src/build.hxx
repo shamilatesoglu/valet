@@ -24,14 +24,16 @@ struct CompileCommand : Command {
 
 struct LinkCommand : Command {
 	std::vector<std::filesystem::path> obj_files;
-	std::optional<std::filesystem::path> binary;
+	std::filesystem::path binary_path;
 };
 
 class BuildPlan
 {
 public:
 	BuildPlan(PackageGraph const& package_graph) : package_graph(package_graph) {}
-	void add_package(Package const& package, std::vector<CompileCommand> const& package_cc);
+	void group(Package const& package, std::vector<CompileCommand> const& package_cc,
+		   std::filesystem::path const& build_folder);
+	bool execute_plan() const;
 
 private:
 	PackageGraph package_graph;

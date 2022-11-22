@@ -1,7 +1,6 @@
 #include <iostream>
 
-#include <add2.h>
-#include <add3.h>
+#include <add5.h>
 
 int main()
 {
@@ -10,7 +9,7 @@ int main()
     int n;
     std::cin >> n;
 
-    std::cout << "Result: " << add3(add2(n)) << std::endl;
+    std::cout << "Result: " << add5(n) << std::endl;
 
     return 0;
 }
