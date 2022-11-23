@@ -34,6 +34,7 @@ public:
 	void group(Package const& package, std::vector<CompileCommand> const& package_cc,
 		   std::filesystem::path const& build_folder);
 	bool execute_plan() const;
+	bool export_compile_commands(std::filesystem::path const& out) const;
 
 private:
 	PackageGraph package_graph;

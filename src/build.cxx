@@ -3,6 +3,8 @@
 // std
 #include <unordered_set>
 #include <sstream>
+#include <fstream>
+#include <regex>
 
 // autob
 #include "package.hxx"
@@ -166,6 +168,34 @@ LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_file
 	command.obj_files = obj_files;
 	command.binary_path = output_file_path;
 	return command;
+}
+
+bool BuildPlan::export_compile_commands(std::filesystem::path const& out) const
+{
+	std::stringstream ss;
+	ss << "[\n";
+	for (size_t i = 0; i < compile_commands.size(); ++i) {
+		auto const& cc = compile_commands[i];
+		std::string esc = std::regex_replace(cc.cmd, std::regex("\""), "\\\"");
+		// clang-format off
+		ss << "{"
+		   << "\n\t\"directory\": \"" << cc.source_file.parent_path().generic_string() << "\","
+		   << "\n\t\"command\": \"" << esc << "\","
+		   << "\n\t\"file\": \"" << cc.source_file.generic_string() << "\""
+		   << "\n}";
+		// clang-format on
+		if (i != compile_commands.size() - 1) {
+			ss << ",";
+		}
+		ss << "\n";
+	}
+	ss << "]\n";
+	auto out_file_path = out / "compile_commands.json";
+	spdlog::info("Exporting compile commands: {}", out_file_path.generic_string());
+	std::ofstream of(out_file_path);
+	of << ss.str();
+	of.close();
+	return true;
 }
 
 } // namespace autob
