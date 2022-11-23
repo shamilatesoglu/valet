@@ -18,12 +18,13 @@
 
 int main(int argc, char* argv[])
 {
-	spdlog::set_level(spdlog::level::trace);
-	spdlog::set_pattern("%^[%=8l] %v%$");
-
 	argparse::ArgumentParser program("autob", "0.1");
 
-	program.add_argument("source").help("Source folder to build");
+	program.add_argument("--source", "-s").default_value(".").help("Source folder to build");
+	program.add_argument("--verbose", "-v")
+	    .default_value(false)
+	    .implicit_value(true)
+	    .help("Print helpful debug information");
 
 	try {
 		program.parse_args(argc, argv);
@@ -32,6 +33,10 @@ int main(int argc, char* argv[])
 		std::cerr << program;
 		return 1;
 	}
+
+	spdlog::set_level(program.get<bool>("verbose") ? spdlog::level::trace
+						       : spdlog::level::info);
+	spdlog::set_pattern("%^[%=8l] %v%$");
 
 	try {
 		std::filesystem::path project_folder = program.get<std::string>("source");
