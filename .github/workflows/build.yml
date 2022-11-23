@@ -6,10 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  CC: "clang"
-  CXX: "clang++"
-
 jobs:
   build:
     runs-on: self-hosted
@@ -30,4 +26,9 @@ jobs:
         run: cmake --build ./cmake_build/
 
       - name: Bootstrap
-        run: ./cmake_build/autob -s . -v
+        run: ./cmake_build/autob -v
+
+      - name: Build Test Projects
+        run: |
+          ./cmake_build/autob -s test/test_projects/deep_deps/ -v
+          ./cmake_build/autob -s test/test_projects/primes/ -v
