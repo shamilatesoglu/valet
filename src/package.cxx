@@ -11,14 +11,15 @@
 namespace autob
 {
 
-std::optional<PackageGraph> make_package_graph(std::filesystem::path const& project_folder)
+std::optional<DependencyGraph<Package>>
+make_package_graph(std::filesystem::path const& project_folder)
 {
 	auto package = find_package(project_folder); // TODO: Handle parse errors
 	if (!package) {
 		return std::nullopt;
 	}
-	PackageGraph package_graph;
-	package_graph.add_package(*package);
+	DependencyGraph<Package> package_graph;
+	package_graph.add(*package);
 
 	std::stack<std::pair<Package, DependencyInfo>> to_be_resolved;
 	for (auto const& dep_info : package->dependencies) {
@@ -33,15 +34,14 @@ std::optional<PackageGraph> make_package_graph(std::filesystem::path const& proj
 		// TODO: For the package server, this needs to fetch the details
 		// of the package from the internet instead of parsing from path
 		std::optional<Package> resolved = std::nullopt;
-		if (auto found = package_graph.get_package_by_id(cur_dep_info.id())) {
+		if (auto found = package_graph.get_node_by_id(cur_dep_info)) {
 			resolved = *found;
-		} else if (auto found = find_package(cur_dep_info.path)) {
-			package_graph.add_package(*found);
+		} else if (auto found = find_package(cur_dep_info.folder)) {
+			package_graph.add(*found);
 			resolved = *found;
 		}
 		if (!resolved) {
-			spdlog::error("Unable to resolve dependency {} {}", cur_dep_info.name,
-				      cur_dep_info.version);
+			spdlog::error("Unable to resolve dependency {}", cur_dep_info.name);
 			return std::nullopt;
 		}
 		package_graph.depend(cur_package, *resolved);
@@ -74,6 +74,7 @@ Package parse_package_cfg(std::filesystem::path const& cfg_file_path)
 	Package package;
 	package.name = package_toml["name"].value_or<std::string>("");
 	package.version = package_toml["version"].value_or<std::string>("");
+	package.id = package.name + "=" + package.version;
 	package.std = package_toml["std"].value_or<std::string>("");
 	package.folder = package_folder;
 
@@ -105,137 +106,13 @@ Package parse_package_cfg(std::filesystem::path const& cfg_file_path)
 	auto const& dependencies_toml = cfg_tbl["dependencies"];
 	for (auto const& entry : *dependencies_toml.node()->as_table()) {
 		DependencyInfo dep_info;
+		// TODO: Include version info
 		dep_info.name = entry.first.str();
-		dep_info.path =
+		dep_info.folder =
 		    std::filesystem::canonical(package_folder / entry.second.as_string()->get());
 		package.dependencies.push_back(dep_info);
 	}
 	return package;
-}
-
-void PackageGraph::add_package(Package const& package)
-{
-	if (depgraph.contains(package))
-		return;
-	spdlog::trace("Adding package {} under path {}", package.name,
-		      package.folder.generic_string());
-	depgraph[package] = {};
-}
-
-bool PackageGraph::depend(Package const& dependent, Package const& dependence)
-{
-	auto it = depgraph.find(dependent);
-	if (it == depgraph.end()) {
-		spdlog::error("Cannot find package {} in dependency graph", dependent.id());
-		return false;
-	}
-	it->second.push_back(dependence);
-	return true;
-}
-
-bool PackageGraph::is_valid() const
-{
-	// TODO: Check cycle
-	return true;
-}
-
-std::optional<std::vector<Package>> PackageGraph::sorted() const
-{
-	class TopologicalSorter
-	{
-	public:
-		TopologicalSorter(PackageGraph const& graph) : graph(graph), visited(graph.size())
-		{
-		}
-		bool sort()
-		{
-			for (auto const& [pck, _] : graph) {
-				if (!visited.contains(pck)) {
-					dfs(pck);
-				}
-			}
-			return true;
-		}
-
-		std::vector<Package> sorted;
-
-	private:
-		bool dfs(Package const& cur)
-		{
-			visited.insert(cur);
-			for (auto const& dep : graph.immediate_deps(cur)) {
-				if (!visited.contains(cur)) {
-					dfs(dep);
-				}
-			}
-			sorted.push_back(cur);
-			spdlog::trace("Visited package: {}", cur.id());
-			return true;
-		}
-
-		PackageGraph const& graph;
-		std::unordered_set<Package> visited;
-	};
-
-	TopologicalSorter sorter(*this);
-	if (!sorter.sort())
-		return std::nullopt;
-
-	return sorter.sorted;
-}
-
-std::vector<Package> const& PackageGraph::immediate_deps(Package const& package) const
-{
-	auto const& it = depgraph.find(package);
-	return it->second;
-}
-
-std::vector<Package> PackageGraph::all_deps(const Package& package) const
-{
-	std::vector<Package> all_deps;
-	std::stack<Package> stack;
-	for (auto const& dep : immediate_deps(package)) {
-		stack.push(dep);
-	}
-	while (!stack.empty()) {
-		auto const& cur = stack.top();
-		all_deps.push_back(cur);
-		stack.pop();
-		for (auto const& dep : immediate_deps(cur)) {
-			stack.push(dep);
-		}
-	}
-	return all_deps;
-}
-
-bool PackageGraph::empty() const
-{
-	return depgraph.empty();
-}
-
-Package const* PackageGraph::get_package_by_id(std::string const& id) const
-{
-	// TODO: Make this O(1)!
-	for (auto const& [package, _] : depgraph) {
-		if (id == package.id())
-			return &package;
-	}
-	return nullptr;
-}
-
-std::unordered_map<Package, std::vector<Package>>::const_iterator PackageGraph::begin() const
-{
-	return depgraph.begin();
-}
-
-std::unordered_map<Package, std::vector<Package>>::const_iterator PackageGraph::end() const
-{
-	return depgraph.end();
-}
-
-size_t PackageGraph::size() const
-{
-	return depgraph.size();
 }
 
 } // namespace autob

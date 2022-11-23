@@ -9,5 +9,6 @@ IndentCaseLabels: false
 AccessModifierOffset: -8
 SortIncludes: false
 DerivePointerAlignment: False
+AlwaysBreakTemplateDeclarations: Yes
 PointerAlignment: Left
 ColumnLimit: 100

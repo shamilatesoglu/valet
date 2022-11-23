@@ -41,7 +41,7 @@ void collect_source_files(std::filesystem::path const& folder,
 	}
 }
 
-std::optional<BuildPlan> make_build_plan(PackageGraph const& package_graph,
+std::optional<BuildPlan> make_build_plan(DependencyGraph<Package> const& package_graph,
 					 std::filesystem::path const& build_folder)
 {
 	auto sorted_opt = package_graph.sorted();
@@ -55,12 +55,12 @@ std::optional<BuildPlan> make_build_plan(PackageGraph const& package_graph,
 		if (!std::filesystem::exists(source_folder)) {
 			spdlog::error(
 			    "Package {} must include a 'src' folder that contains its source files",
-			    package.id());
+			    package.id);
 			return std::nullopt;
 		}
 		collect_source_files(source_folder, source_files);
 		std::vector<CompileCommand> compile_commands;
-		auto package_build_folder = build_folder / package.id();
+		auto package_build_folder = build_folder / package.id;
 		for (auto const& source_file : source_files) {
 			auto cc = make_compile_command(
 			    source_file, package,
@@ -125,7 +125,7 @@ CompileCommand make_compile_command(std::filesystem::path const& source_file,
 	for (auto const& dep : dependencies) {
 		for (auto const& public_incl : dep.public_includes) {
 			spdlog::trace("Adding public include {} of the dependency {} to package {}",
-				      public_incl.generic_string(), dep.id(), package.id());
+				      public_incl.generic_string(), dep.id, package.id);
 			cmd << " -I" << public_incl;
 		}
 	}
@@ -140,7 +140,7 @@ LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_file
 			      Package const& package, std::vector<Package> const& dependencies,
 			      std::filesystem::path const& build_folder)
 {
-	auto output_file_path = build_folder / package.id() / package.name;
+	auto output_file_path = build_folder / package.id / package.name;
 	std::stringstream cmd;
 	switch (package.type) {
 	case Application: {
@@ -149,7 +149,7 @@ LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_file
 			cmd << " " << o;
 		}
 		for (auto const& dep : dependencies) {
-			auto dep_bin_path = build_folder / dep.id() / (dep.name + ".a");
+			auto dep_bin_path = build_folder / dep.id / (dep.name + ".a");
 			cmd << " " << dep_bin_path.generic_string();
 		}
 		cmd << " -o " << output_file_path.generic_string();

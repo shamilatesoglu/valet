@@ -30,14 +30,14 @@ struct LinkCommand : Command {
 class BuildPlan
 {
 public:
-	BuildPlan(PackageGraph const& package_graph) : package_graph(package_graph) {}
+	BuildPlan(DependencyGraph<Package> const& package_graph) : package_graph(package_graph) {}
 	void group(Package const& package, std::vector<CompileCommand> const& package_cc,
 		   std::filesystem::path const& build_folder);
 	bool execute_plan() const;
 	bool export_compile_commands(std::filesystem::path const& out) const;
 
 private:
-	PackageGraph package_graph;
+	DependencyGraph<Package> package_graph;
 	std::vector<CompileCommand> compile_commands;
 	std::vector<LinkCommand> link_commands;
 };
@@ -47,7 +47,7 @@ int execute(Command const& command);
 void collect_source_files(std::filesystem::path const& folder,
 			  std::vector<std::filesystem::path>& out);
 
-std::optional<BuildPlan> make_build_plan(PackageGraph const& package_graph,
+std::optional<BuildPlan> make_build_plan(DependencyGraph<Package> const& package_graph,
 					 std::filesystem::path const& build_folder);
 
 CompileCommand make_compile_command(std::filesystem::path const& source_file,
