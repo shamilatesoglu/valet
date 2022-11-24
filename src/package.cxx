@@ -8,6 +8,17 @@
 #include <tomlplusplus/toml.hpp>
 #include <spdlog/spdlog.h>
 
+namespace std
+{
+template <>
+struct hash<std::filesystem::path> {
+	size_t operator()(std::filesystem::path const& path) const
+	{
+		return std::hash<std::string>()(std::filesystem::canonical(path));
+	}
+};
+} // namespace std
+
 namespace autob
 {
 
@@ -15,39 +26,38 @@ std::optional<DependencyGraph<Package>>
 make_package_graph(std::filesystem::path const& project_folder)
 {
 	auto package = find_package(project_folder); // TODO: Handle parse errors
-	if (!package) {
+	if (!package)
 		return std::nullopt;
-	}
 	DependencyGraph<Package> package_graph;
 	package_graph.add(*package);
 
+	// TODO: For remote dependencies, we need to download them before resolving.
 	std::stack<std::pair<Package, DependencyInfo>> to_be_resolved;
-	for (auto const& dep_info : package->dependencies) {
+	for (auto const& dep_info : package->dependencies)
 		to_be_resolved.push({*package, dep_info});
-	}
-
+	std::unordered_map<std::filesystem::path, Package> resolved_packages; // Path -> Package
 	while (!to_be_resolved.empty()) {
 		auto pair = to_be_resolved.top();
 		to_be_resolved.pop();
 		auto const& cur_dep_info = pair.second;
 		auto const& cur_package = pair.first;
-		// TODO: For the package server, this needs to fetch the details
-		// of the package from the internet instead of parsing from path
 		std::optional<Package> resolved = std::nullopt;
-		if (auto found = package_graph.get_node_by_id(cur_dep_info)) {
-			resolved = *found;
-		} else if (auto found = find_package(cur_dep_info.folder)) {
-			package_graph.add(*found);
-			resolved = *found;
+		auto it = resolved_packages.find(cur_dep_info.folder);
+		if (it == resolved_packages.end()) {
+			resolved = find_package(cur_dep_info.folder);
+		} else {
+			resolved = it->second;
 		}
 		if (!resolved) {
-			spdlog::error("Unable to resolve dependency {}", cur_dep_info.name);
-			return std::nullopt;
+			spdlog::error("Unable to resolve the dependency {} of {}",
+				      cur_dep_info.name, cur_package.id);
+			return std::nullopt; // continue?
 		}
+		package_graph.add(*resolved);
 		package_graph.depend(cur_package, *resolved);
-		for (auto const& dep_info : resolved->dependencies) {
+		resolved_packages[cur_dep_info.folder] = *resolved;
+		for (auto const& dep_info : resolved->dependencies)
 			to_be_resolved.push({*resolved, dep_info});
-		}
 	}
 
 	return package_graph;

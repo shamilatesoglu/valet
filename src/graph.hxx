@@ -20,6 +20,13 @@ struct Identifiable {
 	bool operator==(Identifiable const& rhs) const { return id == rhs.id; }
 };
 
+struct Hasher {
+	size_t operator()(Identifiable const& ptr) const
+	{
+		return std::hash<std::string>()(ptr.id);
+	}
+};
+
 template <class T, class U>
 concept Derived = std::is_base_of<U, T>::value;
 
@@ -27,12 +34,13 @@ template <Derived<Identifiable> T>
 class DependencyGraph
 {
 public:
-	void add(T const& node)
+	bool add(T const& node)
 	{
 		if (depgraph.contains(node))
-			return;
+			return false;
 		spdlog::trace("DependencyGraph: Adding node {}", node.id);
 		depgraph[node] = {};
+		return true;
 	}
 
 	bool depend(T const& dependant, T const& dependence)
@@ -42,7 +50,7 @@ public:
 			spdlog::error("Cannot find {} in dependency graph", dependant.id);
 			return false;
 		}
-		it->second.push_back(dependence);
+		it->second.insert(dependence);
 		return true;
 	}
 
@@ -98,7 +106,7 @@ public:
 		return sorter.sorted;
 	}
 
-	std::vector<T> const& immediate_deps(T const& node) const
+	std::unordered_set<T> const& immediate_deps(T const& node) const
 	{
 		auto const& it = depgraph.find(node);
 		if (it == depgraph.end()) {
@@ -130,21 +138,20 @@ public:
 
 	T const* get_node_by_id(Identifiable const& identifiable) const
 	{
-		// TODO: Make this O(1)!
-		for (auto const& [node, _] : depgraph) {
-			if (identifiable.id == node.id)
-				return &node;
+		spdlog::trace("Searching for {}", identifiable.id);
+		auto it = depgraph.find(static_cast<T const&>(identifiable));
+		if (it != depgraph.end()) {
+			return &it->first;
 		}
 		return nullptr;
 	}
 
-	typename std::unordered_map<T, std::vector<T>>::const_iterator begin() const
+	typename std::unordered_map<T, std::unordered_set<T>>::const_iterator begin() const
 	{
-
 		return depgraph.begin();
 	}
 
-	typename std::unordered_map<T, std::vector<T>>::const_iterator end() const
+	typename std::unordered_map<T, std::unordered_set<T>>::const_iterator end() const
 	{
 		return depgraph.end();
 	}
@@ -152,7 +159,7 @@ public:
 	size_t size() const { return depgraph.size(); }
 
 private:
-	std::unordered_map<T, std::vector<T>> depgraph;
+	std::unordered_map<T, std::unordered_set<T>, Hasher> depgraph;
 };
 
 } // namespace autob

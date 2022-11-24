@@ -21,7 +21,7 @@ enum PackageType {
 	StaticLibrary,
 };
 
-struct DependencyInfo : Identifiable {
+struct DependencyInfo {
 	std::string name;
 	// Folder might also be the download location of a remote package
 	std::filesystem::path folder;
@@ -53,14 +53,6 @@ struct hash<autob::Identifiable> {
 template <>
 struct hash<autob::Package> {
 	size_t operator()(const autob::Package& key) const
-	{
-		return ::std::hash<std::string>()(key.id);
-	}
-};
-
-template <>
-struct hash<autob::DependencyInfo> {
-	size_t operator()(const autob::DependencyInfo& key) const
 	{
 		return ::std::hash<std::string>()(key.id);
 	}
