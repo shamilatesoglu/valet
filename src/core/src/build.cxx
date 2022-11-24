@@ -1,4 +1,4 @@
-#include "build.hxx"
+#include "autob/build.hxx"
 
 // std
 #include <unordered_set>
@@ -7,7 +7,7 @@
 #include <regex>
 
 // autob
-#include "package.hxx"
+#include "autob/package.hxx"
 
 namespace autob
 {

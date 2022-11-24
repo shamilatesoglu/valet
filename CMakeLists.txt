@@ -8,7 +8,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cxx"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hxx")
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hxx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/**/*.cxx"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/**/*.hxx")
 
 add_executable(autob ${SOURCES})
-target_include_directories(autob PRIVATE "./third_party/")
+target_include_directories(autob PRIVATE "./third_party/" "./src/core/include" "./src/core/src")

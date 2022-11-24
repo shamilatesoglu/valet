@@ -14,7 +14,7 @@
 #include <argparse/argparse.hpp>
 
 // autob
-#include "build.hxx"
+#include <autob/build.hxx>
 
 int main(int argc, char* argv[])
 {
@@ -32,6 +32,10 @@ int main(int argc, char* argv[])
 	    .default_value(false)
 	    .implicit_value(true)
 	    .help("Export compilation commands database");
+	program.add_argument("--dry-run", "-dr")
+	    .default_value(false)
+	    .implicit_value(true)
+	    .help("Do not execute build");
 
 	try {
 		program.parse_args(argc, argv);
@@ -64,6 +68,9 @@ int main(int argc, char* argv[])
 			if (program.get<bool>("export-compile-commands")) {
 				build_plan->export_compile_commands(project_folder);
 			}
+			if (program.get<bool>("dry-run")) {
+				return 0;
+			}
 			if (!build_plan->execute_plan()) {
 				spdlog::error("Build failed.");
 				return 1;
@@ -79,6 +86,7 @@ int main(int argc, char* argv[])
 				}
 				std::filesystem::path exe_path =
 				    build_folder / executable->id / executable->name;
+				spdlog::info("Running target: {}", exe_path.generic_string());
 				return std::system(exe_path.generic_string().c_str());
 			}
 		}

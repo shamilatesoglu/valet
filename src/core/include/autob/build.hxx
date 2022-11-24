@@ -8,7 +8,7 @@
 #include <spdlog/spdlog.h>
 
 // autob
-#include "package.hxx"
+#include "autob/package.hxx"
 
 namespace autob
 {

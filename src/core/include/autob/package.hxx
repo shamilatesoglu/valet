@@ -11,7 +11,7 @@
 #include <unordered_map>
 
 // autob
-#include "graph.hxx"
+#include "autob/graph.hxx"
 
 namespace autob
 {
@@ -42,14 +42,6 @@ struct Package : Identifiable {
 
 namespace std
 {
-template <>
-struct hash<autob::Identifiable> {
-	size_t operator()(const autob::Identifiable& key) const
-	{
-		return ::std::hash<std::string>()(key.id);
-	}
-};
-
 template <>
 struct hash<autob::Package> {
 	size_t operator()(const autob::Package& key) const

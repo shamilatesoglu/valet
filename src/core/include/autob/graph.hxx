@@ -18,8 +18,24 @@ namespace autob
 struct Identifiable {
 	std::string id;
 	bool operator==(Identifiable const& rhs) const { return id == rhs.id; }
+	std::string operator()() const { return id; }
 };
 
+} // namespace autob
+
+namespace std
+{
+template <>
+struct hash<autob::Identifiable> {
+	size_t operator()(const autob::Identifiable& key) const
+	{
+		return ::std::hash<std::string>()(key.id);
+	}
+};
+} // namespace std
+
+namespace autob
+{
 struct Hasher {
 	size_t operator()(Identifiable const& ptr) const
 	{
@@ -71,9 +87,10 @@ public:
 			}
 			bool sort()
 			{
+				// TODO: Return false on cycle!
 				for (auto const& [node, _] : graph) {
-					if (!visited.contains(node)) {
-						dfs(node);
+					if (!dfs(node)) {
+						return false;
 					}
 				}
 				return true;
@@ -84,10 +101,12 @@ public:
 		private:
 			bool dfs(T const& cur)
 			{
+				if (visited.contains(cur))
+					return true;
 				visited.insert(cur);
 				for (auto const& dep : graph.immediate_deps(cur)) {
-					if (!visited.contains(cur)) {
-						dfs(dep);
+					if (!dfs(dep)) {
+						return false;
 					}
 				}
 				sorted.push_back(cur);
@@ -159,7 +178,7 @@ public:
 	size_t size() const { return depgraph.size(); }
 
 private:
-	std::unordered_map<T, std::unordered_set<T>, Hasher> depgraph;
+	std::unordered_map<T, std::unordered_set<T>> depgraph;
 };
 
 } // namespace autob
