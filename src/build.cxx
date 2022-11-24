@@ -76,6 +76,9 @@ std::optional<BuildPlan> make_build_plan(DependencyGraph<Package> const& package
 void BuildPlan::group(Package const& package, std::vector<CompileCommand> const& package_cc,
 		      std::filesystem::path const& build_folder)
 {
+	if (package.type == PackageType::Application) {
+		executable_targets[package.name] = package;
+	}
 	compile_commands.insert(compile_commands.begin(), package_cc.begin(), package_cc.end());
 	std::vector<std::filesystem::path> obj_files;
 	for (auto const& cc : package_cc) {
@@ -196,6 +199,20 @@ bool BuildPlan::export_compile_commands(std::filesystem::path const& out) const
 	of << ss.str();
 	of.close();
 	return true;
+}
+
+Package const* BuildPlan::get_executable_target_by_name(std::string const& name) const
+{
+	auto it = executable_targets.find(name);
+	if (it == executable_targets.end()) {
+		spdlog::trace("No such executable target: {}", name);
+		spdlog::trace("\tExecutable targets are: ");
+		for (auto [name, target] : executable_targets) {
+			spdlog::trace("\t\t{}", target.id);
+		}
+		return nullptr;
+	}
+	return &it->second;
 }
 
 } // namespace autob

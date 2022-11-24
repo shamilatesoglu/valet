@@ -35,11 +35,13 @@ public:
 		   std::filesystem::path const& build_folder);
 	bool execute_plan() const;
 	bool export_compile_commands(std::filesystem::path const& out) const;
+	Package const* get_executable_target_by_name(std::string const& name) const;
 
 private:
 	DependencyGraph<Package> package_graph;
 	std::vector<CompileCommand> compile_commands;
 	std::vector<LinkCommand> link_commands;
+	std::unordered_map<std::string, Package> executable_targets;
 };
 
 int execute(Command const& command);

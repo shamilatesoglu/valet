@@ -23,6 +23,7 @@ int main(int argc, char* argv[])
 	program.add_argument("--source", "-s")
 	    .default_value(std::string("./"))
 	    .help("Source folder to build");
+	program.add_argument("--run", "-r").help("Runs the specified target");
 	program.add_argument("--verbose", "-v")
 	    .default_value(false)
 	    .implicit_value(true)
@@ -67,7 +68,19 @@ int main(int argc, char* argv[])
 				spdlog::error("Build failed.");
 				return 1;
 			}
-			spdlog::info("Success.");
+			spdlog::info("Build success.");
+			if (program.is_used("run")) {
+				std::string target_name = program.get<std::string>("run");
+				auto executable =
+				    build_plan->get_executable_target_by_name(target_name);
+				if (!executable) {
+					spdlog::error("No such executable target: {}", target_name);
+					return 1;
+				}
+				std::filesystem::path exe_path =
+				    build_folder / executable->id / executable->name;
+				return std::system(exe_path.generic_string().c_str());
+			}
 		}
 	} catch (const toml::parse_error& err) {
 		spdlog::error("Parsing failed: {}", err.description());
