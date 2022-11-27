@@ -8,6 +8,7 @@
 
 // autob
 #include "autob/package.hxx"
+#include "autob/string_utils.hxx"
 
 namespace autob
 {
@@ -39,6 +40,78 @@ void collect_source_files(std::filesystem::path const& folder,
 			spdlog::debug("Found source file: {}", source_file.generic_string());
 		}
 	}
+}
+
+struct DepFileEntry : Identifiable {
+	enum Type { ObjectFile, Dependency };
+	DepFileEntry(std::filesystem::path const& path, Type type) : type(type)
+	{
+		id = std::filesystem::weakly_canonical(path);
+	}
+	Type type;
+	std::filesystem::path path() const { return id; }
+};
+
+} // namespace autob
+
+namespace std
+{
+
+template <>
+struct hash<autob::DepFileEntry> {
+	size_t operator()(const autob::DepFileEntry& key) const
+	{
+		return ::std::hash<std::string>()(key.id);
+	}
+};
+
+} // namespace std
+
+namespace autob
+{
+
+void collect_source_deps(std::filesystem::path const& depfile_path,
+			 DependencyGraph<DepFileEntry>& out)
+{
+	// TODO: Optimize
+	if (!std::filesystem::exists(depfile_path))
+		return;
+	std::ifstream depfile_stream(depfile_path);
+	std::stringstream depfile_str;
+	depfile_str << depfile_stream.rdbuf();
+	depfile_stream.close();
+
+	std::vector<std::string> split = util::split(depfile_str.str(), "\\");
+	for (auto& str : split) {
+		util::replace_string(str, "\\", "");
+		util::replace_string(str, "\n", "");
+		util::replace_string(str, "\r", "");
+		util::trim(str);
+	}
+
+	split[0].erase(split[0].size() - 1);
+	DepFileEntry o_entry(split[0], DepFileEntry::ObjectFile);
+	out.add(o_entry);
+
+	for (size_t i = 0; i < split.size(); ++i) {
+		auto const& dep_str = split[i];
+		DepFileEntry d_entry(dep_str, DepFileEntry::Dependency);
+		out.add(d_entry);
+		out.depend(o_entry, d_entry);
+	}
+}
+
+bool has_modified_deps(DepFileEntry const& output_dep_entry,
+		       std::unordered_set<DepFileEntry> const& deps)
+{
+	for (auto const& dep : deps) {
+		auto tmout = std::filesystem::last_write_time(output_dep_entry.path());
+		auto tmdep = std::filesystem::last_write_time(dep.path());
+		if (tmdep > tmout) {
+			return true;
+		}
+	}
+	return false;
 }
 
 std::optional<BuildPlan> make_build_plan(DependencyGraph<Package> const& package_graph,
@@ -89,8 +162,9 @@ void BuildPlan::group(Package const& package, std::vector<CompileCommand> const&
 	link_commands.push_back(lc);
 }
 
-bool BuildPlan::execute_plan() const
+bool BuildPlan::execute_plan()
 {
+	optimize_plan();
 	bool success = true;
 	for (auto const& cmd : compile_commands) {
 		auto output_folder = cmd.obj_file.parent_path();
@@ -213,6 +287,35 @@ Package const* BuildPlan::get_executable_target_by_name(std::string const& name)
 		return nullptr;
 	}
 	return &it->second;
+}
+
+void BuildPlan::optimize_plan()
+{
+	spdlog::debug("Optimizing build plan");
+	// Actually, dependency graph is not needed (and consequally, one pass solution would be
+	// sufficient).
+	DependencyGraph<DepFileEntry> depgraph;
+	for (auto const& cc : compile_commands) {
+		std::filesystem::path depfile_path =
+		    cc.obj_file.parent_path() / (cc.obj_file.stem().generic_string() + ".d");
+		collect_source_deps(depfile_path, depgraph);
+	}
+	for (auto it = compile_commands.begin(); it != compile_commands.end();) {
+		auto const& cmd = *it;
+		DepFileEntry entry(cmd.obj_file, DepFileEntry::ObjectFile);
+		bool should_compile = true;
+		if (depgraph.has(entry)) {
+			if (!has_modified_deps(entry, depgraph.immediate_deps(entry)))
+				should_compile = false;
+			// List any other decisions here
+		}
+		if (!should_compile) {
+			spdlog::trace("Skipped compiling {}", cmd.source_file.generic_string());
+			it = compile_commands.erase(it);
+		} else {
+			++it;
+		}
+	}
 }
 
 } // namespace autob

@@ -33,11 +33,13 @@ public:
 	BuildPlan(DependencyGraph<Package> const& package_graph) : package_graph(package_graph) {}
 	void group(Package const& package, std::vector<CompileCommand> const& package_cc,
 		   std::filesystem::path const& build_folder);
-	bool execute_plan() const;
+	bool execute_plan();
 	bool export_compile_commands(std::filesystem::path const& out) const;
 	Package const* get_executable_target_by_name(std::string const& name) const;
 
 private:
+	void optimize_plan();
+
 	DependencyGraph<Package> package_graph;
 	std::vector<CompileCommand> compile_commands;
 	std::vector<LinkCommand> link_commands;

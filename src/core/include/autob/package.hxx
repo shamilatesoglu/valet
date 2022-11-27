@@ -42,6 +42,7 @@ struct Package : Identifiable {
 
 namespace std
 {
+
 template <>
 struct hash<autob::Package> {
 	size_t operator()(const autob::Package& key) const

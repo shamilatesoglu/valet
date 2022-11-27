@@ -36,12 +36,6 @@ struct hash<autob::Identifiable> {
 
 namespace autob
 {
-struct Hasher {
-	size_t operator()(Identifiable const& ptr) const
-	{
-		return std::hash<std::string>()(ptr.id);
-	}
-};
 
 template <class T, class U>
 concept Derived = std::is_base_of<U, T>::value;
@@ -163,6 +157,11 @@ public:
 			return &it->first;
 		}
 		return nullptr;
+	}
+
+	bool has(Identifiable const& identifiable) const
+	{
+		return depgraph.find(static_cast<T const&>(identifiable)) != depgraph.end();
 	}
 
 	typename std::unordered_map<T, std::unordered_set<T>>::const_iterator begin() const
