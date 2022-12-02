@@ -233,7 +233,7 @@ LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_file
 		break;
 	}
 	case StaticLibrary: {
-		cmd << "ar r " << output_file_path.generic_string() + ".a";
+		cmd << "ld -r -o " << output_file_path.generic_string() + ".a";
 		for (auto const& o : obj_files) {
 			cmd << " " << o.generic_string();
 		}
@@ -292,7 +292,7 @@ Package const* BuildPlan::get_executable_target_by_name(std::string const& name)
 void BuildPlan::optimize_plan()
 {
 	spdlog::debug("Optimizing build plan");
-	// Actually, dependency graph is not needed (and consequally, one pass solution would be
+	// Actually, dependency graph is not needed (and consequently, one pass solution would be
 	// sufficient).
 	DependencyGraph<DepFileEntry> depgraph;
 	for (auto const& cc : compile_commands) {
