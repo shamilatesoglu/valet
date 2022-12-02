@@ -28,6 +28,8 @@ int main(int argc, char* argv[])
 	    .default_value(false)
 	    .implicit_value(true)
 	    .help("Print helpful debug information");
+	program.add_argument("--clean").default_value(false).implicit_value(true).help(
+	    "Clean build folder");
 	program.add_argument("--export-compile-commands", "-ecc")
 	    .default_value(false)
 	    .implicit_value(true)
@@ -54,6 +56,11 @@ int main(int argc, char* argv[])
 		std::filesystem::path project_folder = path_string;
 		project_folder = std::filesystem::canonical(project_folder);
 		std::filesystem::path build_folder = project_folder / "build";
+		if (program.get<bool>("clean"))
+		{
+			spdlog::info("Cleaning build");
+			std::filesystem::remove_all(build_folder);
+		}
 		if (auto package_graph = autob::make_package_graph(project_folder)) {
 			if (package_graph->empty()) {
 				spdlog::error("No package found under {}",
