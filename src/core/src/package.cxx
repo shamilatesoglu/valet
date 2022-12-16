@@ -10,13 +10,15 @@
 
 namespace std
 {
+#if not _WIN32
 template <>
 struct hash<std::filesystem::path> {
 	size_t operator()(std::filesystem::path const& path) const
 	{
-		return std::hash<std::string>()(std::filesystem::canonical(path));
+		return std::hash<std::string>()(std::filesystem::canonical(path).generic_string());
 	}
 };
+#endif
 } // namespace std
 
 namespace autob

@@ -9,6 +9,7 @@
 // autob
 #include "autob/package.hxx"
 #include "autob/string_utils.hxx"
+#include "autob/platform.hxx"
 
 namespace autob
 {
@@ -46,7 +47,7 @@ struct DepFileEntry : Identifiable {
 	enum Type { ObjectFile, Dependency };
 	DepFileEntry(std::filesystem::path const& path, Type type) : type(type)
 	{
-		id = std::filesystem::weakly_canonical(path);
+		id = std::filesystem::weakly_canonical(path).generic_string();
 	}
 	Type type;
 	std::filesystem::path path() const { return id; }
@@ -81,20 +82,21 @@ void collect_source_deps(std::filesystem::path const& depfile_path,
 	depfile_str << depfile_stream.rdbuf();
 	depfile_stream.close();
 
-	std::vector<std::string> split = util::split(depfile_str.str(), "\\");
-	for (auto& str : split) {
-		util::replace_string(str, "\\", "");
-		util::replace_string(str, "\n", "");
-		util::replace_string(str, "\r", "");
-		util::trim(str);
+	std::vector<std::string> lines = util::split(depfile_str.str(), "\n");
+	for (auto& line : lines)
+	{
+		util::strip(line);
+		if (line.ends_with(":"))
+			line.erase(line.end() - 1);
 	}
 
-	split[0].erase(split[0].size() - 1);
-	DepFileEntry o_entry(split[0], DepFileEntry::ObjectFile);
+	lines[0].erase(lines[0].size() - 1);
+	DepFileEntry o_entry(lines[0], DepFileEntry::ObjectFile);
 	out.add(o_entry);
 
-	for (size_t i = 0; i < split.size(); ++i) {
-		auto const& dep_str = split[i];
+	for (size_t i = 0; i < lines.size(); ++i) {
+		auto const& dep_str = lines[i];
+		if (dep_str.empty()) continue;
 		DepFileEntry d_entry(dep_str, DepFileEntry::Dependency);
 		out.add(d_entry);
 		out.depend(o_entry, d_entry);
@@ -233,7 +235,7 @@ LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_file
 		break;
 	}
 	case StaticLibrary: {
-		cmd << "ld -r -o " << output_file_path.generic_string() + ".a";
+		cmd << autob::platform::static_link_command_prefix(output_file_path.generic_string() + ".a");
 		for (auto const& o : obj_files) {
 			cmd << " " << o.generic_string();
 		}
