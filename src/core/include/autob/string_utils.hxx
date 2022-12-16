@@ -12,4 +12,6 @@ void replace_string(std::string& subject, const std::string& search, const std::
 
 void trim(std::string& str);
 
+void strip(std::string& str);
+
 } // namespace autob::util
