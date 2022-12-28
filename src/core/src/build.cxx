@@ -135,7 +135,7 @@ bool has_modified_deps(DepFileEntry const& output_dep_entry,
 				return true;
 			}
 			else {
-				spdlog::trace("Dependency {} is older than output {}, skipping compilation",
+				spdlog::trace("Dependency {} is older than output {}",
 					      dep.path().generic_string(),
 					      output_dep_entry.path().generic_string());
 			}
@@ -225,7 +225,7 @@ CompileCommand make_compile_command(std::filesystem::path const& source_file,
 	std::stringstream cmd;
 	cmd << "clang++" // TODO: CompilationSettings
 	    << " -Wall"	 // TODO: CompilationOptions
-	    << " -Wunknown-pragmas"
+	    << " -Wno-unknown-pragmas"
 	    << " -MD"
 	    << " -c " << source_file.generic_string()
 	    << " -std=" << package.std // TODO: ABI compatibility warnings
@@ -346,7 +346,7 @@ void BuildPlan::optimize_plan()
 				should_compile = false;
 			// List any other decisions here
 		} else {
-			spdlog::trace("No deps found for {}", cmd.obj_file.generic_string());
+			spdlog::trace("No depfile found for {}", cmd.obj_file.generic_string());
 		}
 		if (!should_compile) {
 			spdlog::trace("Skipped compiling {}", cmd.source_file.generic_string());
