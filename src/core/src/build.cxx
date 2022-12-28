@@ -48,6 +48,7 @@ struct DepFileEntry : Identifiable {
 	DepFileEntry(std::filesystem::path const& path, Type type) : type(type)
 	{
 		id = std::filesystem::weakly_canonical(path).generic_string();
+		platform::sanitize_path(id);
 	}
 	Type type;
 	std::filesystem::path path() const { return id; }
@@ -83,20 +84,35 @@ void collect_source_deps(std::filesystem::path const& depfile_path,
 	depfile_stream.close();
 
 	std::vector<std::string> lines = util::split(depfile_str.str(), "\n");
-	for (auto& line : lines)
-	{
+	for (auto& line : lines) {
 		util::strip(line);
-		if (line.ends_with(":"))
+		if (line.ends_with("\\"))
 			line.erase(line.end() - 1);
+		util::strip(line);
 	}
 
-	lines[0].erase(lines[0].size() - 1);
-	DepFileEntry o_entry(lines[0], DepFileEntry::ObjectFile);
+	// TODO: Pretty nasty. Might need to be more robust.
+	auto& first_line = lines[0];
+	// If the first line contains a dep after the last colon, take it and insert after lines[0].
+	auto colon_pos = first_line.find_last_of(": ");
+	if (colon_pos != first_line.size() - 1) {
+		auto dep_str = first_line.substr(colon_pos - 1);
+		util::strip(dep_str);
+		lines.insert(lines.begin() + 1, dep_str);
+		// Remove the colon with the leftover characters from the first line.
+		first_line = first_line.substr(0, colon_pos - 3);
+	}
+	else {
+		first_line = first_line.substr(0, colon_pos);
+	}
+
+	DepFileEntry o_entry(first_line, DepFileEntry::ObjectFile);
 	out.add(o_entry);
 
 	for (size_t i = 0; i < lines.size(); ++i) {
 		auto const& dep_str = lines[i];
-		if (dep_str.empty()) continue;
+		if (dep_str.empty())
+			continue;
 		DepFileEntry d_entry(dep_str, DepFileEntry::Dependency);
 		out.add(d_entry);
 		out.depend(o_entry, d_entry);
@@ -107,10 +123,25 @@ bool has_modified_deps(DepFileEntry const& output_dep_entry,
 		       std::unordered_set<DepFileEntry> const& deps)
 {
 	for (auto const& dep : deps) {
-		auto tmout = std::filesystem::last_write_time(output_dep_entry.path());
-		auto tmdep = std::filesystem::last_write_time(dep.path());
-		if (tmdep > tmout) {
-			return true;
+		try {
+			if (!std::filesystem::exists(output_dep_entry.path()))
+				return true;
+			auto tmout = std::filesystem::last_write_time(output_dep_entry.path());
+			auto tmdep = std::filesystem::last_write_time(dep.path());
+			if (tmdep > tmout) {
+				spdlog::trace("Dependency {} is newer than output {}, will compile",
+					      dep.path().generic_string(),
+					      output_dep_entry.path().generic_string());
+				return true;
+			}
+			else {
+				spdlog::trace("Dependency {} is older than output {}, skipping compilation",
+					      dep.path().generic_string(),
+					      output_dep_entry.path().generic_string());
+			}
+		} catch (std::runtime_error const& err) {
+			spdlog::error(err.what());
+			throw err;
 		}
 	}
 	return false;
@@ -194,6 +225,7 @@ CompileCommand make_compile_command(std::filesystem::path const& source_file,
 	std::stringstream cmd;
 	cmd << "clang++" // TODO: CompilationSettings
 	    << " -Wall"	 // TODO: CompilationOptions
+	    << " -Wunknown-pragmas"
 	    << " -MD"
 	    << " -c " << source_file.generic_string()
 	    << " -std=" << package.std // TODO: ABI compatibility warnings
@@ -231,11 +263,14 @@ LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_file
 			auto dep_bin_path = build_folder / dep.id / (dep.name + ".a");
 			cmd << " " << dep_bin_path.generic_string();
 		}
-		cmd << " -o " << output_file_path.generic_string();
+		auto output_file_path_str = output_file_path.generic_string();
+		platform::add_executable_file_ext(output_file_path_str);
+		cmd << " -o " << output_file_path_str;
 		break;
 	}
 	case StaticLibrary: {
-		cmd << autob::platform::static_link_command_prefix(output_file_path.generic_string() + ".a");
+		cmd << platform::static_link_command_prefix(
+		    output_file_path.generic_string() + ".a");
 		for (auto const& o : obj_files) {
 			cmd << " " << o.generic_string();
 		}
@@ -310,6 +345,8 @@ void BuildPlan::optimize_plan()
 			if (!has_modified_deps(entry, depgraph.immediate_deps(entry)))
 				should_compile = false;
 			// List any other decisions here
+		} else {
+			spdlog::trace("No deps found for {}", cmd.obj_file.generic_string());
 		}
 		if (!should_compile) {
 			spdlog::trace("Skipped compiling {}", cmd.source_file.generic_string());
