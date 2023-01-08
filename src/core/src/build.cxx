@@ -148,6 +148,7 @@ bool has_modified_deps(DepFileEntry const& output_dep_entry,
 }
 
 std::optional<BuildPlan> make_build_plan(DependencyGraph<Package> const& package_graph,
+					 CompileOptions const& opts,
 					 std::filesystem::path const& build_folder)
 {
 	auto sorted_opt = package_graph.sorted();
@@ -171,7 +172,7 @@ std::optional<BuildPlan> make_build_plan(DependencyGraph<Package> const& package
 			auto cc = make_compile_command(
 			    source_file, package,
 			    /* Should 'public_includes' have transitive relation? */
-			    package_graph.all_deps(package), package_build_folder);
+			    package_graph.all_deps(package), opts, package_build_folder);
 			compile_commands.push_back(cc);
 		}
 		plan.group(package, compile_commands, build_folder);
@@ -219,17 +220,25 @@ bool BuildPlan::execute_plan()
 CompileCommand make_compile_command(std::filesystem::path const& source_file,
 				    Package const& package,
 				    std::vector<Package> const& dependencies,
+				    CompileOptions const& opts,
 				    std::filesystem::path const& output_folder)
 {
 	std::filesystem::path obj_file = output_folder / (source_file.filename().string() + ".o");
 	std::stringstream cmd;
 	cmd << "clang++" // TODO: CompilationSettings
 	    << " -Wall"	 // TODO: CompilationOptions
-	    << " -Wno-unknown-pragmas"
 	    << " -MD"
 	    << " -c " << source_file.generic_string()
 	    << " -std=" << package.std // TODO: ABI compatibility warnings
 	    << " -o " << obj_file.generic_string();
+	if (opts.release)
+		cmd << " -O3";
+	else {
+		cmd << " -g -O0";
+	}
+	for (auto const& opt : package.compile_options) {
+		cmd << " " << opt;
+	}
 	for (auto const& incl : package.includes) {
 		cmd << " -I" << incl.generic_string();
 	}

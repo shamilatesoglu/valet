@@ -6,3 +6,4 @@ std = "c++20"
 compiler_path = "clang++"
 includes = ["../../third_party", "./include", "./src"]
 public_includes = ["./include/"]
+compile_options = ["-Wno-unknown-pragmas"]

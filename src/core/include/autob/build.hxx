@@ -27,6 +27,11 @@ struct LinkCommand : Command {
 	std::filesystem::path binary_path;
 };
 
+struct CompileOptions {
+	bool release = false;
+	std::vector<std::string> additional_options;
+};
+
 class BuildPlan
 {
 public:
@@ -52,11 +57,13 @@ void collect_source_files(std::filesystem::path const& folder,
 			  std::vector<std::filesystem::path>& out);
 
 std::optional<BuildPlan> make_build_plan(DependencyGraph<Package> const& package_graph,
+					 CompileOptions const& opts,
 					 std::filesystem::path const& build_folder);
 
 CompileCommand make_compile_command(std::filesystem::path const& source_file,
 				    Package const& package,
 				    std::vector<Package> const& dependencies,
+				    CompileOptions const& opts,
 				    std::filesystem::path const& output_folder);
 
 LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_files,

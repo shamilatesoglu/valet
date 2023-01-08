@@ -38,6 +38,10 @@ int main(int argc, char* argv[])
 	    .default_value(false)
 	    .implicit_value(true)
 	    .help("Do not execute build");
+	program.add_argument("--release", "-rel")
+	    .default_value(false)
+	    .implicit_value(true)
+	    .help("Build in release mode with optimizations");
 
 	try {
 		program.parse_args(argc, argv);
@@ -50,6 +54,9 @@ int main(int argc, char* argv[])
 	spdlog::set_level(program.get<bool>("verbose") ? spdlog::level::trace
 						       : spdlog::level::info);
 	spdlog::set_pattern("%^[%=8l] %v%$");
+
+	autob::CompileOptions opts;
+	opts.release = program.get<bool>("release");
 
 	try {
 		std::string path_string = program.get("source");
@@ -67,7 +74,7 @@ int main(int argc, char* argv[])
 					      project_folder.generic_string());
 				return 1;
 			}
-			auto build_plan = autob::make_build_plan(*package_graph, build_folder);
+			auto build_plan = autob::make_build_plan(*package_graph, opts, build_folder);
 			if (!build_plan) {
 				spdlog::error("Unable to generate build plan");
 				return 1;

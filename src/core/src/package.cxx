@@ -112,6 +112,12 @@ Package parse_package_cfg(std::filesystem::path const& cfg_file_path)
 			package.public_includes.push_back(path);
 		}
 	}
+	auto const& compile_options_ref = package_toml["compile_options"];
+	if (auto options_arr = compile_options_ref.as_array()) {
+		for (auto&& option_node : *options_arr) {
+			package.compile_options.push_back(*option_node.value<std::string>());
+		}
+	}
 	if (!cfg_tbl.contains("dependencies")) {
 		return package;
 	}

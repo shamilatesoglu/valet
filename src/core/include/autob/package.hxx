@@ -34,6 +34,7 @@ struct Package : Identifiable {
 	PackageType type;
 	std::vector<std::filesystem::path> public_includes;
 	std::vector<std::filesystem::path> includes;
+	std::vector<std::string> compile_options;
 	std::vector<DependencyInfo> dependencies;
 	std::filesystem::path folder;
 };
