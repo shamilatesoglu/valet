@@ -15,6 +15,7 @@
 
 // autob
 #include <autob/build.hxx>
+#include <autob/platform.hxx>
 
 int main(int argc, char* argv[])
 {
@@ -100,8 +101,12 @@ int main(int argc, char* argv[])
 				}
 				std::filesystem::path exe_path =
 				    build_folder / executable->id / executable->name;
-				spdlog::info("Running target: {}", exe_path.generic_string());
-				return std::system(exe_path.generic_string().c_str());
+				auto exe_path_str = exe_path.generic_string();
+				autob::platform::add_executable_file_ext(exe_path_str);
+				spdlog::info("Running target: {}", exe_path_str);
+				autob::platform::escape_cli_command(exe_path_str);
+				exe_path_str = "\"" + exe_path_str + "\"";
+				return std::system(exe_path_str.c_str());
 			}
 		}
 	} catch (const toml::parse_error& err) {

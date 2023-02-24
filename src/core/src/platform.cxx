@@ -39,4 +39,12 @@ bool clangpp_test()
 	return true;
 }
 
+void escape_cli_command(std::string& command)
+{
+#if defined(_WIN32)
+	util::replace_string(command, "\"", "\\\"");
+	util::replace_string(command, "=", "^=");
+#endif
+}
+
 } // namespace autob::platform
