@@ -4,7 +4,7 @@
 #include <string>
 #include <filesystem>
 
-namespace autob::platform
+namespace valet::platform
 {
 
 std::string static_link_command_prefix(std::string const& output_file_path_str);
@@ -13,4 +13,4 @@ void sanitize_path(std::string& path);
 bool clangpp_test();
 void escape_cli_command(std::string& command);
 
-} // namespace autob::platform
+} // namespace valet::platform

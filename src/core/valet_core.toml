@@ -1,5 +1,5 @@
 [package]
-name = "autob_core"
+name = "valet_core"
 type = "lib"
 version = "0.1.0"
 std = "c++20"

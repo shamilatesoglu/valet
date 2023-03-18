@@ -13,13 +13,13 @@
 #include <tomlplusplus/toml.hpp>
 #include <argparse/argparse.hpp>
 
-// autob
-#include <autob/build.hxx>
-#include <autob/platform.hxx>
+// valet
+#include <valet/build.hxx>
+#include <valet/platform.hxx>
 
 int main(int argc, char* argv[])
 {
-	argparse::ArgumentParser program("autob", "0.1");
+	argparse::ArgumentParser program("valet", "0.1");
 
 	program.add_argument("--source", "-s")
 	    .default_value(std::string("./"))
@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
 						       : spdlog::level::info);
 	spdlog::set_pattern("%^[%=8l] %v%$");
 
-	autob::CompileOptions opts;
+	valet::CompileOptions opts;
 	opts.release = program.get<bool>("release");
 
 	try {
@@ -69,13 +69,13 @@ int main(int argc, char* argv[])
 			spdlog::info("Cleaning build");
 			std::filesystem::remove_all(build_folder);
 		}
-		if (auto package_graph = autob::make_package_graph(project_folder)) {
+		if (auto package_graph = valet::make_package_graph(project_folder)) {
 			if (package_graph->empty()) {
 				spdlog::error("No package found under {}",
 					      project_folder.generic_string());
 				return 1;
 			}
-			auto build_plan = autob::make_build_plan(*package_graph, opts, build_folder);
+			auto build_plan = valet::make_build_plan(*package_graph, opts, build_folder);
 			if (!build_plan) {
 				spdlog::error("Unable to generate build plan");
 				return 1;
@@ -102,9 +102,9 @@ int main(int argc, char* argv[])
 				std::filesystem::path exe_path =
 				    build_folder / executable->id / executable->name;
 				auto exe_path_str = exe_path.generic_string();
-				autob::platform::add_executable_file_ext(exe_path_str);
+				valet::platform::add_executable_file_ext(exe_path_str);
 				spdlog::info("Running target: {}", exe_path_str);
-				autob::platform::escape_cli_command(exe_path_str);
+				valet::platform::escape_cli_command(exe_path_str);
 				exe_path_str = "\"" + exe_path_str + "\"";
 				return std::system(exe_path_str.c_str());
 			}

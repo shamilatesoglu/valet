@@ -6,7 +6,7 @@
 #include "primes.h"
 
 int main(int argc, char *args[]) {
-  std::cout << "autob test program: primes" << std::endl;
+  std::cout << "valet test program: primes" << std::endl;
 
   uint64_t n;
   std::cout << "Find primes up to: ";

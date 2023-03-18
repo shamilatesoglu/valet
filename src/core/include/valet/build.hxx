@@ -7,10 +7,10 @@
 // external
 #include <spdlog/spdlog.h>
 
-// autob
-#include "autob/package.hxx"
+// valet
+#include "valet/package.hxx"
 
-namespace autob
+namespace valet
 {
 
 struct Command {
@@ -70,4 +70,4 @@ LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_file
 			      Package const& package, std::vector<Package> const& dependencies,
 			      std::filesystem::path const& output_folder);
 
-} // namespace autob
+} // namespace valet

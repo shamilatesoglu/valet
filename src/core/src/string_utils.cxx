@@ -1,6 +1,6 @@
-#include "autob/string_utils.hxx"
+#include "valet/string_utils.hxx"
 
-namespace autob::util
+namespace valet::util
 {
 
 std::vector<std::string> split(std::string const& str, std::string const& delim)
@@ -54,4 +54,4 @@ void strip(std::string& str)
 	str = start_pos <= end_pos ? std::string(start_it, end_it.base()) : "";
 }
 
-} // namespace autob::util
+} // namespace valet::util

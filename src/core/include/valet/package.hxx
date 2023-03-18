@@ -10,10 +10,10 @@
 #include <memory>
 #include <unordered_map>
 
-// autob
-#include "autob/graph.hxx"
+// valet
+#include "valet/graph.hxx"
 
-namespace autob
+namespace valet
 {
 
 enum PackageType {
@@ -39,14 +39,14 @@ struct Package : Identifiable {
 	std::filesystem::path folder;
 };
 
-} // namespace autob
+} // namespace valet
 
 namespace std
 {
 
 template <>
-struct hash<autob::Package> {
-	size_t operator()(const autob::Package& key) const
+struct hash<valet::Package> {
+	size_t operator()(const valet::Package& key) const
 	{
 		return ::std::hash<std::string>()(key.id);
 	}
@@ -54,7 +54,7 @@ struct hash<autob::Package> {
 
 } // namespace std
 
-namespace autob
+namespace valet
 {
 
 std::optional<Package> find_package(std::filesystem::path const& folder);
@@ -62,4 +62,4 @@ Package parse_package_cfg(std::filesystem::path const& cfg_file_path);
 std::optional<DependencyGraph<Package>>
 make_package_graph(std::filesystem::path const& project_folder);
 
-} // namespace autob
+} // namespace valet

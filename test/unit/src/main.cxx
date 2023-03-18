@@ -1,13 +1,13 @@
 #include <boost/ut.hpp>
 
-#include <autob/graph.hxx>
+#include <valet/graph.hxx>
 
 using namespace boost::ut;
 
 int main()
 {
 	"DependencyGraph"_test = [] {
-		autob::DependencyGraph<autob::Identifiable> graph;
+		valet::DependencyGraph<valet::Identifiable> graph;
 		graph.add({"a"});
 		graph.add({"b"});
 		graph.add({"c"});
@@ -22,7 +22,7 @@ int main()
 			auto sorted_opt = graph.sorted();
 			expect(sorted_opt.has_value());
 			auto const& sorted = *sorted_opt;
-			expect(sorted == std::vector<autob::Identifiable>{{"c"}, {"b"}, {"a"}});
+			expect(sorted == std::vector<valet::Identifiable>{{"c"}, {"b"}, {"a"}});
 		};
 	};
 }

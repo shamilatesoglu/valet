@@ -12,7 +12,7 @@
 // external
 #include <spdlog/spdlog.h>
 
-namespace autob
+namespace valet
 {
 
 struct Identifiable {
@@ -21,20 +21,20 @@ struct Identifiable {
 	std::string operator()() const { return id; }
 };
 
-} // namespace autob
+} // namespace valet
 
 namespace std
 {
 template <>
-struct hash<autob::Identifiable> {
-	size_t operator()(const autob::Identifiable& key) const
+struct hash<valet::Identifiable> {
+	size_t operator()(const valet::Identifiable& key) const
 	{
 		return ::std::hash<std::string>()(key.id);
 	}
 };
 } // namespace std
 
-namespace autob
+namespace valet
 {
 
 template <class T, class U>
@@ -180,4 +180,4 @@ private:
 	std::unordered_map<T, std::unordered_set<T>> depgraph;
 };
 
-} // namespace autob
+} // namespace valet

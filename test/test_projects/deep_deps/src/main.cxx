@@ -5,7 +5,7 @@
 int main()
 {
 
-    std::cout << "autob test program: deep_deps" << std::endl << "Add 5 to: ";
+    std::cout << "valet test program: deep_deps" << std::endl << "Add 5 to: ";
     int n;
     std::cin >> n;
 

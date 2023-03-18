@@ -1,4 +1,4 @@
-#include "autob/build.hxx"
+#include "valet/build.hxx"
 
 // std
 #include <unordered_set>
@@ -6,12 +6,12 @@
 #include <fstream>
 #include <regex>
 
-// autob
-#include "autob/package.hxx"
-#include "autob/string_utils.hxx"
-#include "autob/platform.hxx"
+// valet
+#include "valet/package.hxx"
+#include "valet/string_utils.hxx"
+#include "valet/platform.hxx"
 
-namespace autob
+namespace valet
 {
 
 int execute(Command const& command)
@@ -54,14 +54,14 @@ struct DepFileEntry : Identifiable {
 	std::filesystem::path path() const { return id; }
 };
 
-} // namespace autob
+} // namespace valet
 
 namespace std
 {
 
 template <>
-struct hash<autob::DepFileEntry> {
-	size_t operator()(const autob::DepFileEntry& key) const
+struct hash<valet::DepFileEntry> {
+	size_t operator()(const valet::DepFileEntry& key) const
 	{
 		return ::std::hash<std::string>()(key.id);
 	}
@@ -69,7 +69,7 @@ struct hash<autob::DepFileEntry> {
 
 } // namespace std
 
-namespace autob
+namespace valet
 {
 
 void collect_source_deps(std::filesystem::path const& depfile_path,
@@ -205,14 +205,14 @@ bool BuildPlan::execute_plan()
 		if (!std::filesystem::exists(output_folder))
 			std::filesystem::create_directories(output_folder);
 		spdlog::info("Compiling {}", cmd.source_file.generic_string());
-		success &= ::autob::execute(cmd) == 0;
+		success &= ::valet::execute(cmd) == 0;
 	}
 	for (auto const& cmd : link_commands) {
 		auto output_folder = cmd.binary_path.parent_path();
 		if (!std::filesystem::exists(output_folder))
 			std::filesystem::create_directories(output_folder);
 		spdlog::info("Linking {}", cmd.binary_path.generic_string());
-		success &= ::autob::execute(cmd) == 0;
+		success &= ::valet::execute(cmd) == 0;
 	}
 	return success;
 }
@@ -366,4 +366,4 @@ void BuildPlan::optimize_plan()
 	}
 }
 
-} // namespace autob
+} // namespace valet

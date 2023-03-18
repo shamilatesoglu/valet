@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: self-hosted
 
-    name: "Build autob"
+    name: "Build valet"
 
     steps:
       - name: Checkout
@@ -26,13 +26,13 @@ jobs:
         run: cmake --build ./cmake_build/
 
       - name: Bootstrap
-        run: ./cmake_build/autob -v
+        run: ./cmake_build/valet -v
 
       - name: Build Test Projects
         run: |
-          ./cmake_build/autob -s test/test_projects/deep_deps/ -v
-          ./cmake_build/autob -s test/test_projects/primes/ -v
+          ./cmake_build/valet -s test/test_projects/deep_deps/ -v
+          ./cmake_build/valet -s test/test_projects/primes/ -v
       
       - name: Run Unit Tests
         run: |
-          ./cmake_build/autob -s test/unit -v -r autob_tests
+          ./cmake_build/valet -s test/unit -v -r valet_tests

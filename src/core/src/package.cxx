@@ -1,4 +1,4 @@
-#include "autob/package.hxx"
+#include "valet/package.hxx"
 
 // std
 #include <stack>
@@ -21,7 +21,7 @@ struct hash<std::filesystem::path> {
 #endif
 } // namespace std
 
-namespace autob
+namespace valet
 {
 
 std::optional<DependencyGraph<Package>>
@@ -73,7 +73,7 @@ std::optional<Package> find_package(std::filesystem::path const& folder)
 			return parse_package_cfg(entry.path()); // TODO: Handle parse errors
 		}
 	}
-	spdlog::error("Cannot find autob config file under directory {}", folder.generic_string());
+	spdlog::error("Cannot find valet config file under directory {}", folder.generic_string());
 	return std::nullopt;
 }
 
@@ -133,4 +133,4 @@ Package parse_package_cfg(std::filesystem::path const& cfg_file_path)
 	return package;
 }
 
-} // namespace autob
+} // namespace valet

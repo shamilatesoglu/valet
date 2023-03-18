@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-namespace autob::util
+namespace valet::util
 {
 
 std::vector<std::string> split(std::string const& str, std::string const& delim);
@@ -14,4 +14,4 @@ void trim(std::string& str);
 
 void strip(std::string& str);
 
-} // namespace autob::util
+} // namespace valet::util

@@ -1,7 +1,7 @@
-#include "autob/platform.hxx"
-#include "autob/string_utils.hxx"
+#include "valet/platform.hxx"
+#include "valet/string_utils.hxx"
 
-namespace autob::platform
+namespace valet::platform
 {
 
 std::string static_link_command_prefix(std::string const& output_file_path_str)
@@ -47,4 +47,4 @@ void escape_cli_command(std::string& command)
 #endif
 }
 
-} // namespace autob::platform
+} // namespace valet::platform
