@@ -1,8 +1,11 @@
-#include <valet/install.hxx>
-#include <valet/build.hxx>
-#include <valet/platform.hxx>
+#include "valet/install.hxx"
 
+// stl
 #include <filesystem>
+
+// valet
+#include "valet/build.hxx"
+#include "valet/platform.hxx"
 
 namespace valet
 {
@@ -24,7 +27,8 @@ bool install_local_package(std::filesystem::path const& project_folder,
 	BuildParams params;
 	params.project_folder = package->folder;
 	params.compile_options.release = true;
-	params.clean = true; // Remove this when we are confident that incremental builds are working absolutely correct
+	params.clean = true; // Remove this when we are confident that incremental builds are
+			     // working absolutely correct
 	params.dry_run = false;
 	params.export_compile_commands = false;
 	params.collect_stats = false;

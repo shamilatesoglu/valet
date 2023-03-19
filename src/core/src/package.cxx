@@ -1,5 +1,4 @@
 #include "valet/package.hxx"
-#include "valet/build.hxx"
 
 // stl
 #include <stack>
@@ -9,6 +8,9 @@
 #define TOML_EXCEPTIONS 0
 #include <tomlplusplus/toml.hpp>
 #include <spdlog/spdlog.h>
+
+// valet
+#include "valet/build.hxx"
 
 #if not _WIN32
 namespace std

@@ -18,6 +18,7 @@
 #include <valet/build.hxx>
 #include <valet/platform.hxx>
 #include <valet/install.hxx>
+#include <valet/stopwatch.hxx>
 
 // TODO: Lots of copies are being made during package graph creation and building. Optimize.
 
@@ -144,6 +145,7 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 	if (program.is_subcommand_used("build")) {
+		valet::util::Stopwatch stopwatch;
 		auto project_folder_opt = path_from_str(build.get("source"), true, true);
 		if (!project_folder_opt) {
 			return 1;
@@ -162,7 +164,7 @@ int main(int argc, char* argv[])
 			spdlog::error("Build failed");
 			return 1;
 		}
-		spdlog::info("Build succeeded");
+		spdlog::info("Build succeeded ({})", stopwatch.elapsed_str());
 		return 0;
 	}
 	if (program.is_subcommand_used("run")) {

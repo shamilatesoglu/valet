@@ -9,6 +9,7 @@
 // valet
 #include "valet/package.hxx"
 #include "valet/string_utils.hxx"
+#include "valet/stopwatch.hxx"
 #include "valet/platform.hxx"
 
 namespace valet
@@ -50,7 +51,8 @@ bool build(BuildParams const& params, BuildPlan* out)
 	if (params.dry_run) {
 		return true;
 	}
-	bool success = build_plan->execute_plan();
+	build_plan->optimize();
+	bool success = build_plan->execute();
 	if (out)
 		*out = *build_plan;
 	return success;
@@ -105,11 +107,13 @@ bool run(RunParams& params)
 
 int execute(Command const& command)
 {
+	util::Stopwatch stopwatch;
 	spdlog::debug("Executing: {}", command.cmd);
 	auto ret = std::system(command.cmd.c_str());
 	if (ret) {
 		spdlog::debug("Command failed with return code {}", ret);
 	}
+	spdlog::debug("Command took {}", stopwatch.elapsed_str());
 	return ret;
 }
 
@@ -284,9 +288,8 @@ void BuildPlan::group(Package const& package, std::vector<CompileCommand> const&
 	link_commands.push_back(lc);
 }
 
-bool BuildPlan::execute_plan()
+bool BuildPlan::execute()
 {
-	optimize_plan();
 	bool success = true;
 	for (auto const& cmd : compile_commands) {
 		auto output_folder = cmd.obj_file.parent_path();
@@ -423,7 +426,7 @@ Package const* BuildPlan::get_executable_target_by_name(std::string const& name)
 	return &it->second;
 }
 
-void BuildPlan::optimize_plan()
+void BuildPlan::optimize()
 {
 	spdlog::debug("Optimizing build plan");
 	// Actually, dependency graph is not needed (and consequently, one pass solution would be
@@ -448,6 +451,26 @@ void BuildPlan::optimize_plan()
 		if (!should_compile) {
 			spdlog::trace("Skipped compiling {}", cmd.source_file.generic_string());
 			it = compile_commands.erase(it);
+		} else {
+			++it;
+		}
+	}
+	// Now, optimize link commands
+	for (auto it = link_commands.begin(); it != link_commands.end();) {
+		auto const& cmd = *it;
+		bool should_link = false;
+		for (auto const& obj : cmd.obj_files) {
+			if (std::find_if(compile_commands.begin(), compile_commands.end(),
+					 [&obj](CompileCommand const& cc) {
+						 return cc.obj_file == obj;
+					 }) != compile_commands.end()) {
+				should_link = true;
+				break;
+			}
+		}
+		if (!should_link) {
+			spdlog::trace("Skipped linking {}", cmd.binary_path.generic_string());
+			it = link_commands.erase(it);
 		} else {
 			++it;
 		}
