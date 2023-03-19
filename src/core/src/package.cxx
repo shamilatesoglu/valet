@@ -1,16 +1,18 @@
 #include "valet/package.hxx"
+#include "valet/build.hxx"
 
-// std
+// stl
 #include <stack>
 #include <unordered_set>
 
 // external
+#define TOML_EXCEPTIONS 0
 #include <tomlplusplus/toml.hpp>
 #include <spdlog/spdlog.h>
 
+#if not _WIN32
 namespace std
 {
-#if not _WIN32
 template <>
 struct hash<std::filesystem::path> {
 	size_t operator()(std::filesystem::path const& path) const
@@ -18,11 +20,33 @@ struct hash<std::filesystem::path> {
 		return std::hash<std::string>()(std::filesystem::canonical(path).generic_string());
 	}
 };
-#endif
 } // namespace std
+#endif
 
 namespace valet
 {
+
+std::filesystem::path Package::target_path(bool release) const
+{
+	std::filesystem::path build_folder = get_build_folder(this->folder, release);
+	return build_folder / this->id / (this->name + this->target_ext());
+}
+
+std::string Package::target_ext() const
+{
+	switch (this->type) {
+	case PackageType::Application:
+#if _WIN32
+		return ".exe";
+#else
+		return "";
+#endif
+	case PackageType::StaticLibrary:
+		return ".a";
+	default:
+		return "";
+	}
+}
 
 std::optional<DependencyGraph<Package>>
 make_package_graph(std::filesystem::path const& project_folder)
@@ -79,9 +103,14 @@ std::optional<Package> find_package(std::filesystem::path const& folder)
 
 std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_path)
 {
-	// TODO: Exception handling
 	auto package_folder = cfg_file_path.parent_path();
-	auto cfg_tbl = toml::parse_file(cfg_file_path.generic_string());
+	auto parse_res = toml::parse_file(cfg_file_path.generic_string());
+	if (!parse_res) {
+		spdlog::error("Failed to parse valet config file: {}",
+			      cfg_file_path.generic_string());
+		return std::nullopt;
+	}
+	toml::table const& cfg_tbl = parse_res;
 	auto const& package_toml = cfg_tbl["package"];
 	Package package;
 	package.name = package_toml["name"].value_or<std::string>("");
@@ -135,7 +164,7 @@ std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_p
 	return package;
 }
 
-std::optional<PackageType> get_package_type(const std::string &type)
+std::optional<PackageType> get_package_type(const std::string& type)
 {
 	if (type == "bin")
 		return PackageType::Application;

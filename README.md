@@ -1,5 +1,5 @@
 # valet
-An attempt on a simple, fast and easy to use C++ build system, heavily inspired by Rust's Cargo.
+An attempt on a simple, fast and easy to use C++ build system, inspired by Rust's Cargo.
 
 ## Status
 - [x] Static library projects

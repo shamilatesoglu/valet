@@ -1,6 +1,6 @@
 #include "valet/build.hxx"
 
-// std
+// stl
 #include <unordered_set>
 #include <sstream>
 #include <fstream>
@@ -13,6 +13,95 @@
 
 namespace valet
 {
+
+std::filesystem::path get_build_folder(std::filesystem::path const& project_folder, bool release)
+{
+	auto build_folder = project_folder / "build" / (release ? "release" : "debug");
+	if (!std::filesystem::exists(build_folder))
+		std::filesystem::create_directories(build_folder);
+	return build_folder;
+}
+
+bool build(BuildParams const& params, BuildPlan* out)
+{
+	auto build_folder = get_build_folder(params.project_folder, params.compile_options.release);
+	if (params.clean) {
+		spdlog::info("Cleaning build");
+		std::filesystem::remove_all(build_folder);
+	}
+	auto package_graph = make_package_graph(params.project_folder);
+	if (!package_graph) {
+		spdlog::error("Unable to parse package graph");
+		return false;
+	}
+	if (package_graph->empty()) {
+		spdlog::error("No package found under {}", params.project_folder.generic_string());
+		return false;
+	}
+	auto build_plan = BuildPlan::make(*package_graph, params.compile_options, build_folder);
+	if (!build_plan) {
+		spdlog::error("Unable to generate build plan");
+		return false;
+	}
+	build_plan->root = *find_package(params.project_folder); // Copies, copies everywhere.
+	if (params.export_compile_commands) {
+		build_plan->export_compile_commands(params.project_folder);
+	}
+	if (params.dry_run) {
+		return true;
+	}
+	bool success = build_plan->execute_plan();
+	if (out)
+		*out = *build_plan;
+	return success;
+}
+
+bool run_target_by_name(BuildPlan const& plan, std::string const& name, bool release)
+{
+	auto* executable = plan.get_executable_target_by_name(name);
+	if (!executable) {
+		spdlog::error("No such executable target: {}", name);
+		return false;
+	}
+	auto exe_build_folder = get_build_folder(executable->folder, release);
+	std::filesystem::path exe_path = exe_build_folder / executable->id / executable->name;
+	auto exe_path_str = exe_path.generic_string() + executable->target_ext();
+	spdlog::info("Running target {}", exe_path_str);
+	valet::platform::escape_cli_command(exe_path_str);
+	exe_path_str = "\"" + exe_path_str + "\"";
+	int ret = std::system(exe_path_str.c_str());
+	if (ret) {
+		spdlog::error("Execution failed with return code {}", ret);
+		return false;
+	}
+	return true;
+}
+
+bool run(RunParams& params)
+{
+	BuildPlan build_plan;
+	if (!build(params.build, &build_plan)) {
+		spdlog::error("Build failed");
+		return false;
+	}
+	if (params.targets.empty()) {
+		auto root_package = find_package(params.build.project_folder);
+		if (!root_package) {
+			spdlog::error("Unable to find root package");
+			return false;
+		}
+		if (root_package->type != PackageType::Application) {
+			spdlog::error("Root package {} is not an executable", root_package->name);
+			return false;
+		}
+		params.targets.emplace_back(root_package->name);
+	}
+	for (auto const& target : params.targets) {
+		if (!run_target_by_name(build_plan, target, params.build.compile_options.release))
+			return false;
+	}
+	return true;
+}
 
 int execute(Command const& command)
 {
@@ -101,8 +190,7 @@ void collect_source_deps(std::filesystem::path const& depfile_path,
 		lines.insert(lines.begin() + 1, dep_str);
 		// Remove the colon with the leftover characters from the first line.
 		first_line = first_line.substr(0, colon_pos - 3);
-	}
-	else {
+	} else {
 		first_line = first_line.substr(0, colon_pos);
 	}
 
@@ -133,8 +221,7 @@ bool has_modified_deps(DepFileEntry const& output_dep_entry,
 					      dep.path().generic_string(),
 					      output_dep_entry.path().generic_string());
 				return true;
-			}
-			else {
+			} else {
 				spdlog::trace("Dependency {} is older than output {}",
 					      dep.path().generic_string(),
 					      output_dep_entry.path().generic_string());
@@ -147,15 +234,16 @@ bool has_modified_deps(DepFileEntry const& output_dep_entry,
 	return false;
 }
 
-std::optional<BuildPlan> make_build_plan(DependencyGraph<Package> const& package_graph,
+std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package_graph,
 					 CompileOptions const& opts,
 					 std::filesystem::path const& build_folder)
 {
 	auto sorted_opt = package_graph.sorted();
-	if (!sorted_opt)
+	if (!sorted_opt || sorted_opt->empty())
 		return std::nullopt;
 	auto const& sorted = *sorted_opt;
-	BuildPlan plan(package_graph);
+	BuildPlan plan;
+	plan.package_graph = package_graph;
 	for (auto const& package : sorted) {
 		std::vector<std::filesystem::path> source_files;
 		std::filesystem::path source_folder = package.folder / "src";
@@ -169,7 +257,7 @@ std::optional<BuildPlan> make_build_plan(DependencyGraph<Package> const& package
 		std::vector<CompileCommand> compile_commands;
 		auto package_build_folder = build_folder / package.id;
 		for (auto const& source_file : source_files) {
-			auto cc = make_compile_command(
+			auto cc = CompileCommand::make(
 			    source_file, package,
 			    /* Should 'public_includes' have transitive relation? */
 			    package_graph.all_deps(package), opts, package_build_folder);
@@ -192,7 +280,7 @@ void BuildPlan::group(Package const& package, std::vector<CompileCommand> const&
 		obj_files.push_back(cc.obj_file);
 	}
 	auto lc =
-	    make_link_command(obj_files, package, package_graph.all_deps(package), build_folder);
+	    LinkCommand::make(obj_files, package, package_graph.all_deps(package), build_folder);
 	link_commands.push_back(lc);
 }
 
@@ -217,7 +305,7 @@ bool BuildPlan::execute_plan()
 	return success;
 }
 
-CompileCommand make_compile_command(std::filesystem::path const& source_file,
+CompileCommand CompileCommand::make(std::filesystem::path const& source_file,
 				    Package const& package,
 				    std::vector<Package> const& dependencies,
 				    CompileOptions const& opts,
@@ -256,7 +344,7 @@ CompileCommand make_compile_command(std::filesystem::path const& source_file,
 	return command;
 }
 
-LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_files,
+LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_files,
 			      Package const& package, std::vector<Package> const& dependencies,
 			      std::filesystem::path const& build_folder)
 {
@@ -269,17 +357,17 @@ LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_file
 			cmd << " " << o;
 		}
 		for (auto const& dep : dependencies) {
-			auto dep_bin_path = build_folder / dep.id / (dep.name + ".a");
+			auto dep_bin_path = build_folder / dep.id / (dep.name + dep.target_ext());
 			cmd << " " << dep_bin_path.generic_string();
 		}
-		auto output_file_path_str = output_file_path.generic_string();
-		platform::add_executable_file_ext(output_file_path_str);
+		auto output_file_path_str =
+		    output_file_path.generic_string() + package.target_ext();
 		cmd << " -o " << output_file_path_str;
 		break;
 	}
 	case StaticLibrary: {
-		cmd << platform::static_link_command_prefix(
-		    output_file_path.generic_string() + ".a");
+		cmd << platform::static_link_command_prefix(output_file_path.generic_string() +
+							    package.target_ext());
 		for (auto const& o : obj_files) {
 			cmd << " " << o.generic_string();
 		}

@@ -1,6 +1,6 @@
 #pragma once
 
-// std
+// stl
 #include <filesystem>
 #include <vector>
 
@@ -13,6 +13,29 @@
 namespace valet
 {
 
+struct CompileOptions {
+	bool release = false;
+	std::vector<std::string> additional_options;
+};
+
+struct BuildParams {
+	std::filesystem::path project_folder;
+	CompileOptions compile_options;
+	bool dry_run = false;
+	bool clean = false;
+	bool export_compile_commands = false;
+	bool collect_stats = false; // TODO.
+};
+
+struct RunParams {
+	BuildParams build;
+	std::vector<std::string> targets; // If emtpy, run the root package if it is an executable.
+};
+
+bool build(BuildParams const& params, class BuildPlan* out = nullptr);
+
+bool run(RunParams& params);
+
 struct Command {
 	std::string cmd;
 };
@@ -20,29 +43,35 @@ struct Command {
 struct CompileCommand : Command {
 	std::filesystem::path source_file;
 	std::filesystem::path obj_file;
+	static CompileCommand make(std::filesystem::path const& source_file, Package const& package,
+				   std::vector<Package> const& dependencies,
+				   CompileOptions const& opts,
+				   std::filesystem::path const& output_folder);
 };
 
 struct LinkCommand : Command {
 	std::vector<std::filesystem::path> obj_files;
 	std::filesystem::path binary_path;
-};
-
-struct CompileOptions {
-	bool release = false;
-	std::vector<std::string> additional_options;
+	static LinkCommand make(std::vector<std::filesystem::path> const& obj_files,
+				Package const& package, std::vector<Package> const& dependencies,
+				std::filesystem::path const& output_folder);
 };
 
 class BuildPlan
 {
 public:
-	BuildPlan(DependencyGraph<Package> const& package_graph) : package_graph(package_graph) {}
+	static std::optional<BuildPlan> make(DependencyGraph<Package> const& package_graph,
+					     CompileOptions const& opts,
+					     std::filesystem::path const& build_folder);
 	void group(Package const& package, std::vector<CompileCommand> const& package_cc,
 		   std::filesystem::path const& build_folder);
 	bool execute_plan();
 	bool export_compile_commands(std::filesystem::path const& out) const;
 	Package const* get_executable_target_by_name(std::string const& name) const;
 
-private:
+	Package root;
+
+protected:
 	void optimize_plan();
 
 	DependencyGraph<Package> package_graph;
@@ -56,18 +85,6 @@ int execute(Command const& command);
 void collect_source_files(std::filesystem::path const& folder,
 			  std::vector<std::filesystem::path>& out);
 
-std::optional<BuildPlan> make_build_plan(DependencyGraph<Package> const& package_graph,
-					 CompileOptions const& opts,
-					 std::filesystem::path const& build_folder);
-
-CompileCommand make_compile_command(std::filesystem::path const& source_file,
-				    Package const& package,
-				    std::vector<Package> const& dependencies,
-				    CompileOptions const& opts,
-				    std::filesystem::path const& output_folder);
-
-LinkCommand make_link_command(std::vector<std::filesystem::path> const& obj_files,
-			      Package const& package, std::vector<Package> const& dependencies,
-			      std::filesystem::path const& output_folder);
+std::filesystem::path get_build_folder(std::filesystem::path const& project_folder, bool release);
 
 } // namespace valet

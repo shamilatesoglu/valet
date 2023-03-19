@@ -11,6 +11,14 @@
 			"program": "${workspaceFolder}/build/valet=0.1.0/valet.exe",
 			"args": ["-s", "./test/test_projects/deep_deps"],
 			"cwd": "${workspaceFolder}"
+		}, 
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug (Ninja)",
+			"program": "${workspaceFolder}/ninja_build/valet.exe",
+			"args": ["build", "-s", "./test/test_projects/deep_deps"],
+			"cwd": "${workspaceFolder}"
 		}
 	]
 }

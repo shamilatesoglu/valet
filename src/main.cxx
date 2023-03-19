@@ -1,3 +1,5 @@
+#define VALET_VERSION "0.1"
+
 // std
 #include <cstdlib>
 #include <filesystem>
@@ -10,108 +12,181 @@
 
 // external
 #include <spdlog/spdlog.h>
-#include <tomlplusplus/toml.hpp>
 #include <argparse/argparse.hpp>
 
 // valet
 #include <valet/build.hxx>
 #include <valet/platform.hxx>
+#include <valet/install.hxx>
+
+// TODO: Lots of copies are being made during package graph creation and building. Optimize.
+
+std::optional<std::filesystem::path> path_from_str(std::string const& path_str, bool should_exist,
+						   bool is_dir)
+{
+	std::filesystem::path path(path_str);
+	try {
+		path = std::filesystem::canonical(path);
+	} catch (std::filesystem::filesystem_error const& err) {
+		spdlog::error("Filesystem Error: {}", path.generic_string());
+		return std::nullopt;
+	}
+	if (should_exist && !std::filesystem::exists(path)) {
+		spdlog::error("No such file or directory: {}", path.generic_string());
+		return std::nullopt;
+	}
+	if (is_dir && !std::filesystem::is_directory(path)) {
+		spdlog::error("Not a directory: {}", path.generic_string());
+		return std::nullopt;
+	} else if (!is_dir && std::filesystem::is_directory(path)) {
+		spdlog::error("Expected a file, is directory: {}", path.generic_string());
+		return std::nullopt;
+	}
+	return path;
+}
 
 int main(int argc, char* argv[])
 {
-	argparse::ArgumentParser program("valet", "0.1");
+	argparse::ArgumentParser program("valet", VALET_VERSION);
 
-	program.add_argument("--source", "-s")
-	    .default_value(std::string("./"))
-	    .help("Source folder to build");
-	program.add_argument("--run", "-r").help("Runs the specified target");
+	// Common arguments
 	program.add_argument("--verbose", "-v")
 	    .default_value(false)
 	    .implicit_value(true)
 	    .help("Print helpful debug information");
-	program.add_argument("--clean").default_value(false).implicit_value(true).help(
-	    "Clean build folder");
-	program.add_argument("--export-compile-commands", "-ecc")
-	    .default_value(false)
-	    .implicit_value(true)
-	    .help("Export compilation commands database");
 	program.add_argument("--dry-run", "-dr")
 	    .default_value(false)
 	    .implicit_value(true)
-	    .help("Do not execute build");
-	program.add_argument("--release", "-rel")
+	    .help("Do not execute build. Useful with --verbose.");
+
+	argparse::ArgumentParser build("build", VALET_VERSION);
+	build.add_description(
+	    "Builds a package in the current source tree. If no target is specified, "
+	    "builds the target found in current working directory.");
+	build.add_argument("--source", "-s")
+	    .default_value(std::string("./"))
+	    .help("Root folder of the package to build");
+	build.add_argument("--release", "-r")
 	    .default_value(false)
 	    .implicit_value(true)
 	    .help("Build in release mode with optimizations");
+	build.add_argument("--clean").default_value(false).implicit_value(true).help(
+	    "Clean build folder");
+	build.add_argument("--export-compile-commands", "-ecc")
+	    .default_value(false)
+	    .implicit_value(true)
+	    .help("Export compilation commands database");
+	program.add_subparser(build);
+
+	argparse::ArgumentParser run("run", VALET_VERSION);
+	run.add_description("Runs a binary. If needed, builds the target first.");
+	run.add_argument("--target", "-t")
+	    .nargs(argparse::nargs_pattern::at_least_one)
+	    .help("Runs the specified target in the source tree. If no target is "
+		  "specified, runs the target found in current working directory (due to default "
+		  "value of --source).");
+	run.add_argument("--source", "-s")
+	    .default_value(std::string("./"))
+	    .help("Root folder of the package to run");
+	run.add_argument("--release", "-r")
+	    .default_value(false)
+	    .implicit_value(true)
+	    .help("Build in release mode with optimizations");
+	run.add_argument("--clean").default_value(false).implicit_value(true).help(
+	    "Clean build folder");
+	program.add_subparser(run);
+
+	argparse::ArgumentParser install("install", VALET_VERSION);
+	install.add_description(
+	    "Installs a package from a remote repository or from a local path.");
+	install.add_argument("--source", "-s").help("Path to the package to install");
+	install.add_argument("package")
+	    .nargs(argparse::nargs_pattern::any)
+	    .help("Package to install");
+	program.add_subparser(install);
 
 	try {
 		program.parse_args(argc, argv);
-	} catch (std::runtime_error const& err) {
-		std::cerr << err.what() << std::endl;
-		std::cerr << program;
-		return 1;
+	} catch (const std::runtime_error& err) {
+		std::cout << err.what() << std::endl;
+		std::cout << program;
+		return 0;
 	}
 
 	spdlog::set_level(program.get<bool>("verbose") ? spdlog::level::trace
 						       : spdlog::level::info);
 	spdlog::set_pattern("%^[%=8l] %v%$");
 
-	valet::CompileOptions opts;
-	opts.release = program.get<bool>("release");
-
-	try {
-		std::string path_string = program.get("source");
-		std::filesystem::path project_folder = path_string;
-		project_folder = std::filesystem::canonical(project_folder);
-		std::filesystem::path build_folder = project_folder / "build";
-		if (program.get<bool>("clean"))
-		{
-			spdlog::info("Cleaning build");
-			std::filesystem::remove_all(build_folder);
+	if (program.is_subcommand_used("install")) {
+		auto const& packages = install.get<std::vector<std::string>>("package");
+		if (!packages.empty() && install.is_used("source")) {
+			spdlog::error("Install: Cannot specify both package name (remote "
+				      "installation) and source path (local installation)");
+			return 1;
 		}
-		if (auto package_graph = valet::make_package_graph(project_folder)) {
-			if (package_graph->empty()) {
-				spdlog::error("No package found under {}",
-					      project_folder.generic_string());
-				return 1;
-			}
-			auto build_plan = valet::make_build_plan(*package_graph, opts, build_folder);
-			if (!build_plan) {
-				spdlog::error("Unable to generate build plan");
-				return 1;
-			}
-			if (program.get<bool>("export-compile-commands")) {
-				build_plan->export_compile_commands(project_folder);
-			}
-			if (program.get<bool>("dry-run")) {
-				return 0;
-			}
-			if (!build_plan->execute_plan()) {
-				spdlog::error("Build failed.");
-				return 1;
-			}
-			spdlog::info("Build success.");
-			if (program.is_used("run")) {
-				std::string target_name = program.get<std::string>("run");
-				auto executable =
-				    build_plan->get_executable_target_by_name(target_name);
-				if (!executable) {
-					spdlog::error("No such executable target: {}", target_name);
-					return 1;
-				}
-				std::filesystem::path exe_path =
-				    build_folder / executable->id / executable->name;
-				auto exe_path_str = exe_path.generic_string();
-				valet::platform::add_executable_file_ext(exe_path_str);
-				spdlog::info("Running target: {}", exe_path_str);
-				valet::platform::escape_cli_command(exe_path_str);
-				exe_path_str = "\"" + exe_path_str + "\"";
-				return std::system(exe_path_str.c_str());
-			}
+		if (!packages.empty()) {
+			spdlog::error("Valet does not yet support remote package installation");
+			return 1;
 		}
-	} catch (const toml::parse_error& err) {
-		spdlog::error("Parsing failed: {}", err.description());
-		return 1;
+		if (install.is_used("source")) {
+			auto source_path_opt =
+			    path_from_str(install.get<std::string>("source"), true, true);
+			if (!source_path_opt) {
+				return 1;
+			}
+			if (!valet::install_local_package(source_path_opt.value(),
+							  valet::get_default_install_path())) {
+				spdlog::error("Install failed");
+				return 1;
+			}
+			spdlog::info("Install succeeded");
+		}
+		return 0;
 	}
-	return 0;
+	if (program.is_subcommand_used("build")) {
+		auto project_folder_opt = path_from_str(build.get("source"), true, true);
+		if (!project_folder_opt) {
+			return 1;
+		}
+		auto project_folder = *project_folder_opt;
+		if (!valet::build(
+			{.project_folder = project_folder,
+			 .compile_options =
+			     valet::CompileOptions{
+				 .release = build.get<bool>("release"),
+			     },
+			 .dry_run = program.get<bool>("dry-run"),
+			 .clean = build.get<bool>("clean"),
+			 .export_compile_commands = build.get<bool>("export-compile-commands"),
+			 .collect_stats = false})) {
+			spdlog::error("Build failed");
+			return 1;
+		}
+		spdlog::info("Build succeeded");
+		return 0;
+	}
+	if (program.is_subcommand_used("run")) {
+		bool release = run.get<bool>("release");
+		bool clean = run.get<bool>("clean");
+
+		auto project_folder_opt = path_from_str(run.get("source"), true, true);
+		if (!project_folder_opt) {
+			return 1;
+		}
+		auto project_folder = *project_folder_opt;
+		valet::RunParams params;
+		params.build.compile_options.release = release;
+		params.build.clean = clean;
+		params.build.project_folder = *project_folder_opt;
+		params.targets = run.get<std::vector<std::string>>("target");
+
+		if (!valet::run(params)) {
+			spdlog::error("Run failed");
+			return 1;
+		}
+		return 0;
+	}
+	spdlog::error("No subcommand specified");
+	std::cout << program;
+	return 1;
 }
