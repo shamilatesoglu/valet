@@ -63,6 +63,8 @@ struct HasContainerTraits : std::false_type {};
 
 template <> struct HasContainerTraits<std::string> : std::false_type {};
 
+template <> struct HasContainerTraits<std::string_view> : std::false_type {};
+
 template <typename T>
 struct HasContainerTraits<
     T, std::void_t<typename T::value_type, decltype(std::declval<T>().begin()),
@@ -374,7 +376,8 @@ class Argument {
   explicit Argument(std::string_view prefix_chars,
                     std::array<std::string_view, N> &&a,
                     std::index_sequence<I...> /*unused*/)
-      : m_is_optional((is_optional(a[I], prefix_chars) || ...)),
+      : m_accepts_optional_like_value(false),
+        m_is_optional((is_optional(a[I], prefix_chars) || ...)),
         m_is_required(false), m_is_repeatable(false), m_is_used(false),
         m_prefix_chars(prefix_chars) {
     ((void)m_names.emplace_back(a[I]), ...);
@@ -404,6 +407,10 @@ public:
     m_default_value_repr = details::repr(value);
     m_default_value = std::forward<T>(value);
     return *this;
+  }
+
+  Argument &default_value(const char *value) {
+    return default_value(std::string(value));
   }
 
   Argument &required() {
@@ -696,10 +703,13 @@ public:
     if constexpr (!details::IsContainer<T>) {
       return get<T>() == rhs;
     } else {
+      using ValueType = typename T::value_type;
       auto lhs = get<T>();
       return std::equal(std::begin(lhs), std::end(lhs), std::begin(rhs),
                         std::end(rhs),
-                        [](const auto &a, const auto &b) { return a == b; });
+                        [](const auto &a, const auto &b) {
+                          return std::any_cast<const ValueType &>(a) == b;
+                        });
     }
   }
 
@@ -966,18 +976,16 @@ private:
    * Get argument value given a type
    * @throws std::logic_error in case of incompatible types
    */
-  template <typename T>
-  auto get() const
-      -> std::conditional_t<details::IsContainer<T>, T, const T &> {
+  template <typename T> T get() const {
     if (!m_values.empty()) {
       if constexpr (details::IsContainer<T>) {
         return any_cast_container<T>(m_values);
       } else {
-        return *std::any_cast<T>(&m_values.front());
+        return std::any_cast<T>(m_values.front());
       }
     }
     if (m_default_value.has_value()) {
-      return *std::any_cast<T>(&m_default_value);
+      return std::any_cast<T>(m_default_value);
     }
     if constexpr (details::IsContainer<T>) {
       if (!m_accepts_optional_like_value) {
@@ -1013,7 +1021,7 @@ private:
     T result;
     std::transform(
         std::begin(operand), std::end(operand), std::back_inserter(result),
-        [](const auto &value) { return *std::any_cast<ValueType>(&value); });
+        [](const auto &value) { return std::any_cast<ValueType>(value); });
     return result;
   }
 
@@ -1031,11 +1039,12 @@ private:
       [](const std::string &value) { return value; }};
   std::vector<std::any> m_values;
   NArgsRange m_num_args_range{1, 1};
-  bool m_accepts_optional_like_value = false;
-  bool m_is_optional : true;
-  bool m_is_required : true;
-  bool m_is_repeatable : true;
-  bool m_is_used : true; // True if the optional argument is used by user
+  // Bit field of bool values. Set default value in ctor.
+  bool m_accepts_optional_like_value : 1;
+  bool m_is_optional : 1;
+  bool m_is_required : 1;
+  bool m_is_repeatable : 1;
+  bool m_is_used : 1;
   std::string_view m_prefix_chars; // ArgumentParser has the prefix_chars
 };
 
@@ -1165,6 +1174,22 @@ public:
     return *this;
   }
 
+  /* Getter for arguments and subparsers.
+   * @throws std::logic_error in case of an invalid argument or subparser name
+   */
+  template <typename T = Argument>
+  T& at(std::string_view name) {
+    if constexpr (std::is_same_v<T, Argument>) {
+      return (*this)[name];
+    } else {
+      auto subparser_it = m_subparser_map.find(name);
+      if (subparser_it != m_subparser_map.end()) {
+        return subparser_it->second->get();
+      }
+      throw std::logic_error("No such subparser: " + std::string(name));
+    }
+  }
+
   ArgumentParser &set_prefix_chars(std::string prefix_chars) {
     m_prefix_chars = std::move(prefix_chars);
     return *this;
@@ -1227,9 +1252,7 @@ public:
    * @throws std::logic_error if the option has no value
    * @throws std::bad_any_cast if the option is not of type T
    */
-  template <typename T = std::string>
-  auto get(std::string_view arg_name) const
-      -> std::conditional_t<details::IsContainer<T>, T, const T &> {
+  template <typename T = std::string> T get(std::string_view arg_name) const {
     if (!m_is_parsed) {
       throw std::logic_error("Nothing parsed, no arguments are available.");
     }
@@ -1253,11 +1276,16 @@ public:
     return (*this)[arg_name].m_is_used;
   }
 
-  /* Getter that returns true for user-supplied options. Returns false if not
-   * user-supplied, even with a default value.
+  /* Getter that returns true if a subcommand is used.
    */
   auto is_subcommand_used(std::string_view subcommand_name) const {
     return m_subparser_used.at(subcommand_name);
+  }
+
+  /* Getter that returns true if a subcommand is used.
+   */
+  auto is_subcommand_used(const ArgumentParser &subparser) const {
+    return is_subcommand_used(subparser.m_program_name);
   }
 
   /* Indexing operator. Return a reference to an Argument object
@@ -1358,13 +1386,7 @@ public:
 
     // Add any options inline here
     for (const auto &argument : this->m_optional_arguments) {
-      if (argument.m_names.front() == "-v") {
-        continue;
-      } else if (argument.m_names.front() == "-h") {
-        stream << " [-h]";
-      } else {
-        stream << " " << argument.get_inline_usage();
-      }
+      stream << " " << argument.get_inline_usage();
     }
     // Put positional arguments after the optionals
     for (const auto &argument : this->m_positional_arguments) {
