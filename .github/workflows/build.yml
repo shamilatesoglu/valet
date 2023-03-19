@@ -25,7 +25,7 @@ jobs:
       - name: Build
         run: cmake --build ./cmake_build/
 
-      - name: Bootstrap
+      - name: Self-hosted Build
         run: ./cmake_build/valet -v build
 
       - name: Build Test Projects
