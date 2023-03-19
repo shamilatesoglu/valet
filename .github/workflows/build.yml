@@ -26,13 +26,13 @@ jobs:
         run: cmake --build ./cmake_build/
 
       - name: Bootstrap
-        run: ./cmake_build/valet -v
+        run: ./cmake_build/valet -v build
 
       - name: Build Test Projects
         run: |
-          ./cmake_build/valet -s test/test_projects/deep_deps/ -v
-          ./cmake_build/valet -s test/test_projects/primes/ -v
+          ./cmake_build/valet -v build -s test/test_projects/deep_deps/
+          ./cmake_build/valet -v build -s test/test_projects/primes/
       
       - name: Run Unit Tests
         run: |
-          ./cmake_build/valet -s test/valet_tests -v -r valet_tests
+          ./cmake_build/valet run -s test/valet_tests/
