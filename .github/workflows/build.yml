@@ -35,4 +35,4 @@ jobs:
       
       - name: Run Unit Tests
         run: |
-          ./cmake_build/valet -s test/unit -v -r valet_tests
+          ./cmake_build/valet -s test/valet_tests -v -r valet_tests
