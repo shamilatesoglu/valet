@@ -16,13 +16,15 @@ bool install_local_package(std::filesystem::path const& project_folder,
 			   std::filesystem::path const& install_path)
 {
 	auto package = find_package(project_folder);
-	if (!package)
+	if (!package) {
+		spdlog::error("Cannot find valet config file under directory {}",
+			      project_folder.generic_string());
 		return false;
-
+	}
 	BuildParams params;
 	params.project_folder = package->folder;
 	params.compile_options.release = true;
-	params.clean = true;
+	params.clean = true; // Remove this when we are confident that incremental builds are working absolutely correct
 	params.dry_run = false;
 	params.export_compile_commands = false;
 	params.collect_stats = false;

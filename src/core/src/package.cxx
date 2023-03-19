@@ -97,7 +97,6 @@ std::optional<Package> find_package(std::filesystem::path const& folder)
 			return parse_package_cfg(entry.path()); // TODO: Handle parse errors
 		}
 	}
-	spdlog::error("Cannot find valet config file under directory {}", folder.generic_string());
 	return std::nullopt;
 }
 
@@ -130,8 +129,14 @@ std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_p
 	auto const& includes_ref = package_toml["includes"];
 	if (auto path_arr = includes_ref.as_array()) {
 		for (auto&& path_node : *path_arr) {
-			std::filesystem::path path = *path_node.value<std::string>();
-			path = std::filesystem::canonical(package_folder / path);
+			std::filesystem::path path =
+			    package_folder / *path_node.value<std::string>();
+			if (!std::filesystem::exists(path)) {
+				spdlog::error("{} public_includes: No such folder {}", package.name,
+					      path.generic_string());
+				return std::nullopt;
+			}
+			path = std::filesystem::canonical(path);
 			package.includes.push_back(path);
 		}
 	}
