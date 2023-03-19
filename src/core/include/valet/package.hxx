@@ -58,7 +58,8 @@ namespace valet
 {
 
 std::optional<Package> find_package(std::filesystem::path const& folder);
-Package parse_package_cfg(std::filesystem::path const& cfg_file_path);
+std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_path);
+std::optional<PackageType> get_package_type(std::string const& type);
 std::optional<DependencyGraph<Package>>
 make_package_graph(std::filesystem::path const& project_folder);
 

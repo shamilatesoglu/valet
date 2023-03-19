@@ -69,7 +69,7 @@ std::optional<Package> find_package(std::filesystem::path const& folder)
 {
 	spdlog::trace("Entering project folder: {}", folder.generic_string());
 	for (auto const& entry : std::filesystem::directory_iterator(folder)) {
-		if (entry.path().extension() == ".toml") {
+		if (entry.path().filename() == "valet.toml") {
 			return parse_package_cfg(entry.path()); // TODO: Handle parse errors
 		}
 	}
@@ -77,7 +77,7 @@ std::optional<Package> find_package(std::filesystem::path const& folder)
 	return std::nullopt;
 }
 
-Package parse_package_cfg(std::filesystem::path const& cfg_file_path)
+std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_path)
 {
 	// TODO: Exception handling
 	auto package_folder = cfg_file_path.parent_path();
@@ -91,10 +91,12 @@ Package parse_package_cfg(std::filesystem::path const& cfg_file_path)
 	package.folder = package_folder;
 
 	auto package_type_str = package_toml["type"].value_or<std::string>("");
-	if (package_type_str == "bin")
-		package.type = PackageType::Application;
-	else if (package_type_str == "lib")
-		package.type = PackageType::StaticLibrary;
+	auto package_type = get_package_type(package_type_str);
+	if (!package_type) {
+		spdlog::error("Invalid package type: {}", package_type_str);
+		return std::nullopt;
+	}
+	package.type = *package_type;
 
 	auto const& includes_ref = package_toml["includes"];
 	if (auto path_arr = includes_ref.as_array()) {
@@ -131,6 +133,16 @@ Package parse_package_cfg(std::filesystem::path const& cfg_file_path)
 		package.dependencies.push_back(dep_info);
 	}
 	return package;
+}
+
+std::optional<PackageType> get_package_type(const std::string &type)
+{
+	if (type == "bin")
+		return PackageType::Application;
+	else if (type == "lib")
+		return PackageType::StaticLibrary;
+	else
+		return std::nullopt;
 }
 
 } // namespace valet

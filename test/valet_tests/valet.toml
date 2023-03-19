@@ -1,5 +1,6 @@
 [package]
 name = "valet_tests"
+description = "Unit tests for valet_core"
 type = "bin"
 version = "0.1.0"
 std = "c++20"
