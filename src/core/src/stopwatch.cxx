@@ -23,6 +23,11 @@ double Stopwatch::elapsed() const
 std::string Stopwatch::elapsed_str() const
 {
 	double seconds = elapsed();
+	return elapsed_str(seconds);
+}
+
+std::string Stopwatch::elapsed_str(double seconds)
+{
 	if (seconds < 1e-6) {
 		return std::to_string(seconds * 1e9) + "ns";
 	} else if (seconds < 1e-3) {

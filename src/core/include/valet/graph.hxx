@@ -1,5 +1,8 @@
 #pragma once
 
+// external
+#include <spdlog/spdlog.h>
+
 // stl
 #include <algorithm>
 #include <optional>
@@ -8,9 +11,6 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <stack>
-
-// external
-#include <spdlog/spdlog.h>
 
 namespace valet
 {

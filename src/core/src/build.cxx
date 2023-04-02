@@ -1,16 +1,17 @@
 #include "valet/build.hxx"
 
+// valet
+#include "valet/package.hxx"
+#include "string_utils.hxx"
+#include "valet/stopwatch.hxx"
+#include "valet/platform.hxx"
+#include "valet/thread_utils.hxx"
+
 // stl
 #include <unordered_set>
 #include <sstream>
 #include <fstream>
 #include <regex>
-
-// valet
-#include "valet/package.hxx"
-#include "valet/string_utils.hxx"
-#include "valet/stopwatch.hxx"
-#include "valet/platform.hxx"
 
 namespace valet
 {
@@ -247,6 +248,7 @@ std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package
 		return std::nullopt;
 	auto const& sorted = *sorted_opt;
 	BuildPlan plan;
+	plan.thread_pool = std::make_shared<util::ThreadPool>(12);
 	plan.package_graph = package_graph;
 	for (auto const& package : sorted) {
 		std::vector<std::filesystem::path> source_files;
@@ -290,21 +292,32 @@ void BuildPlan::group(Package const& package, std::vector<CompileCommand> const&
 
 bool BuildPlan::execute()
 {
-	bool success = true;
+	util::Stopwatch sw;
+	std::atomic_bool success = true;
 	for (auto const& cmd : compile_commands) {
-		auto output_folder = cmd.obj_file.parent_path();
-		if (!std::filesystem::exists(output_folder))
-			std::filesystem::create_directories(output_folder);
-		spdlog::info("Compiling {}", cmd.source_file.generic_string());
-		success &= ::valet::execute(cmd) == 0;
+		thread_pool->enqueue([&success, cmd] {
+			auto output_folder = cmd.obj_file.parent_path();
+			if (!std::filesystem::exists(output_folder))
+				std::filesystem::create_directories(output_folder);
+			spdlog::info("Compiling {}", cmd.source_file.generic_string());
+			success.store(::valet::execute(cmd) == 0 && success.load());
+		});
 	}
+	thread_pool->wait();
+	double compile_time = sw.elapsed();
 	for (auto const& cmd : link_commands) {
-		auto output_folder = cmd.binary_path.parent_path();
-		if (!std::filesystem::exists(output_folder))
-			std::filesystem::create_directories(output_folder);
-		spdlog::info("Linking {}", cmd.binary_path.generic_string());
-		success &= ::valet::execute(cmd) == 0;
+		thread_pool->enqueue([&success, cmd] {
+			auto output_folder = cmd.binary_path.parent_path();
+			if (!std::filesystem::exists(output_folder))
+				std::filesystem::create_directories(output_folder);
+			spdlog::info("Linking {}", cmd.binary_path.generic_string());
+			success.store(::valet::execute(cmd) == 0 && success.load());
+		});
 	}
+	thread_pool->wait();
+	double link_time = sw.elapsed() - compile_time;
+	spdlog::debug("Compilation took {}", util::Stopwatch::elapsed_str(compile_time));
+	spdlog::debug("Linking took {}",  util::Stopwatch::elapsed_str(link_time));
 	return success;
 }
 

@@ -1,5 +1,8 @@
 #pragma once
 
+// valet
+#include "valet/graph.hxx"
+
 // stl
 #include <optional>
 #include <filesystem>
@@ -9,9 +12,6 @@
 #include <map>
 #include <memory>
 #include <unordered_map>
-
-// valet
-#include "valet/graph.hxx"
 
 namespace valet
 {

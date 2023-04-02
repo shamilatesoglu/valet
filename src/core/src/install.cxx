@@ -1,11 +1,11 @@
 #include "valet/install.hxx"
 
-// stl
-#include <filesystem>
-
 // valet
 #include "valet/build.hxx"
 #include "valet/platform.hxx"
+
+// stl
+#include <filesystem>
 
 namespace valet
 {

@@ -1,16 +1,16 @@
 #include "valet/package.hxx"
 
-// stl
-#include <stack>
-#include <unordered_set>
+// valet
+#include "valet/build.hxx"
 
 // external
 #define TOML_EXCEPTIONS 0
 #include <tomlplusplus/toml.hpp>
 #include <spdlog/spdlog.h>
 
-// valet
-#include "valet/build.hxx"
+// stl
+#include <stack>
+#include <unordered_set>
 
 #if not _WIN32
 namespace std

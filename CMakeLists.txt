@@ -14,3 +14,7 @@ file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src"
 
 add_executable(valet ${SOURCES})
 target_include_directories(valet PRIVATE "./third_party/" "./src/core/include" "./src/core/src")
+
+# pthread
+find_package(Threads REQUIRED)
+target_link_libraries(valet PRIVATE Threads::Threads)

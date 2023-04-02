@@ -1,14 +1,15 @@
 #pragma once
 
-// stl
-#include <filesystem>
-#include <vector>
+// valet
+#include "valet/package.hxx"
+#include "valet/thread_utils.hxx"
 
 // external
 #include <spdlog/spdlog.h>
 
-// valet
-#include "valet/package.hxx"
+// stl
+#include <filesystem>
+#include <vector>
 
 namespace valet
 {
@@ -76,6 +77,7 @@ protected:
 	std::vector<CompileCommand> compile_commands;
 	std::vector<LinkCommand> link_commands;
 	std::unordered_map<std::string, Package> executable_targets;
+	std::shared_ptr<util::ThreadPool> thread_pool;
 };
 
 int execute(Command const& command);
