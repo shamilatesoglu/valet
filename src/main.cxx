@@ -1,5 +1,15 @@
 #define VALET_VERSION "0.1"
 
+// valet
+#include <valet/build.hxx>
+#include <valet/platform.hxx>
+#include <valet/install.hxx>
+#include <valet/stopwatch.hxx>
+
+// external
+#include <spdlog/spdlog.h>
+#include <argparse/argparse.hpp>
+
 // std
 #include <cstdlib>
 #include <filesystem>
@@ -9,16 +19,6 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
-
-// external
-#include <spdlog/spdlog.h>
-#include <argparse/argparse.hpp>
-
-// valet
-#include <valet/build.hxx>
-#include <valet/platform.hxx>
-#include <valet/install.hxx>
-#include <valet/stopwatch.hxx>
 
 // TODO: Lots of copies are being made during package graph creation and building. Optimize.
 
