@@ -6,59 +6,69 @@
 namespace valet::util
 {
 
-ThreadPool::ThreadPool(uint32_t num_threads)
+ThreadPool::ThreadPool(uint32_t num_threads) : running(false)
 {
+	threads.resize(num_threads);
 	for (uint32_t i = 0; i < num_threads; ++i) {
-		threads.emplace_back([this]() {
-			while (true) {
-				std::function<void()> task;
-				{
-					std::unique_lock<std::mutex> lock(this->tasks_mutex);
-                                        std::unique_lock<std::mutex> sleeper_lock(this->sleeper_mutex);
-					this->sleeper.wait(sleeper_lock, [this]() {
-						return this->stopped || !this->tasks.empty();
-					});
-					if (this->stopped && this->tasks.empty())
-						return;
-					task = std::move(this->tasks.front());
-					this->tasks.pop();
-					spdlog::debug(
-					    "ThreadPool: task popped from queue ({} tasks left)",
-					    this->tasks.size());
-				}
-				task();
-			}
-		});
+		threads[i] = std::thread(&ThreadPool::worker, this, i);
 	}
+	running = true;
 }
 
 ThreadPool::~ThreadPool()
 {
-	{
-		std::unique_lock<std::mutex> lock(tasks_mutex);
-		stopped = true;
+	stop();
+	for (auto& thread : threads) {
+		if (thread.joinable()) {
+			thread.join();
+		}
 	}
-	sleeper.notify_all();
-	for (std::thread& thread : threads)
-		thread.join();
 }
 
-bool ThreadPool::enqueue(std::function<void()> task)
+void ThreadPool::enqueue(std::function<void()> task)
 {
-	{
-		std::unique_lock<std::mutex> lock(tasks_mutex);
-		if (stopped)
-			return false;
-		tasks.emplace(task);
-	}
-	sleeper.notify_one();
-	return true;
+	std::unique_lock lock(tasks_mutex);
+	tasks.push(std::move(task));
+	++task_count;
+	spdlog::trace("Task enqueued, {} tasks remaining", task_count.load());
+	tasks_cond.notify_one();
 }
 
 void ThreadPool::wait()
 {
-	std::unique_lock<std::mutex> lock(sleeper_mutex);
-	sleeper.wait(lock, [this]() { return this->tasks.empty(); });
+	std::unique_lock lock(wait_mutex);
+	wait_cond.wait(lock, [this] { return task_count == 0; });
+}
+
+void ThreadPool::stop()
+{
+	wait();
+	running = false;
+	tasks_cond.notify_all();
+}
+
+void ThreadPool::worker(uint32_t thread_id)
+{
+	while (running) {
+		std::function<void()> task;
+		{
+			std::unique_lock lock(tasks_mutex);
+			tasks_cond.wait(lock, [this] { return !tasks.empty() || !running; });
+			if (!running) {
+				spdlog::trace("Worker thread {} exiting", thread_id);
+				return;
+			}
+			task = std::move(tasks.front());
+			tasks.pop();
+		}
+		task();
+		--task_count;
+		spdlog::trace("Task finished, {} tasks remaining", task_count.load());
+		if (task_count == 0) {
+			spdlog::trace("All tasks finished, notifying waiters");
+			wait_cond.notify_all();
+		}
+	}
 }
 
 } // namespace valet::util

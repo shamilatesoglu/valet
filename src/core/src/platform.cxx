@@ -3,6 +3,15 @@
 // valet
 #include "string_utils.hxx"
 
+// external
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN      // Exclude rarely-used stuff from Windows headers
+#define NOMINMAX                 // Exclude min and max macros
+#include <windows.h>
+#elif defined(__APPLE__) || defined(__linux__)
+#include <unistd.h>
+#endif
+
 namespace valet::platform
 {
 
@@ -60,6 +69,19 @@ std::filesystem::path get_home_dir()
 	return std::filesystem::path(std::getenv("HOME"));
 #elif defined(__linux__)
 	return std::filesystem::path(std::getenv("HOME"));
+#else
+#error Unsupported platform
+#endif
+}
+
+uint32_t get_cpu_count()
+{
+#if defined(_WIN32)
+	SYSTEM_INFO sysinfo;
+	GetSystemInfo(&sysinfo);
+	return sysinfo.dwNumberOfProcessors;
+#elif defined(__linux__) || defined(__APPLE__)
+	return sysconf(_SC_NPROCESSORS_ONLN);
 #else
 #error Unsupported platform
 #endif

@@ -109,12 +109,12 @@ bool run(RunParams& params)
 int execute(Command const& command)
 {
 	util::Stopwatch stopwatch;
-	spdlog::debug("Executing: {}", command.cmd);
+	spdlog::trace("Executing: {}", command.cmd);
 	auto ret = std::system(command.cmd.c_str());
 	if (ret) {
-		spdlog::debug("Command failed with return code {}", ret);
+		spdlog::error("Command failed with return code {}", ret);
 	}
-	spdlog::debug("Command took {}", stopwatch.elapsed_str());
+	spdlog::trace("Command took {}", stopwatch.elapsed_str());
 	return ret;
 }
 
@@ -248,7 +248,7 @@ std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package
 		return std::nullopt;
 	auto const& sorted = *sorted_opt;
 	BuildPlan plan;
-	plan.thread_pool = std::make_shared<util::ThreadPool>(12);
+	plan.thread_pool = std::make_shared<util::ThreadPool>(platform::get_cpu_count() / 3);
 	plan.package_graph = package_graph;
 	for (auto const& package : sorted) {
 		std::vector<std::filesystem::path> source_files;
@@ -300,7 +300,8 @@ bool BuildPlan::execute()
 			if (!std::filesystem::exists(output_folder))
 				std::filesystem::create_directories(output_folder);
 			spdlog::info("Compiling {}", cmd.source_file.generic_string());
-			success.store(::valet::execute(cmd) == 0 && success.load());
+			auto ret = ::valet::execute(cmd);
+			success.store(ret == 0 && success.load());
 		});
 	}
 	thread_pool->wait();
@@ -311,7 +312,8 @@ bool BuildPlan::execute()
 			if (!std::filesystem::exists(output_folder))
 				std::filesystem::create_directories(output_folder);
 			spdlog::info("Linking {}", cmd.binary_path.generic_string());
-			success.store(::valet::execute(cmd) == 0 && success.load());
+			auto ret = ::valet::execute(cmd);
+			success.store(ret == 0 && success.load());
 		});
 	}
 	thread_pool->wait();
