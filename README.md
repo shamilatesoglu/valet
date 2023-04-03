@@ -12,10 +12,11 @@ An attempt on a simple, fast and easy to use C++ build system, inspired by Rust'
 - [ ] Compilation cache
 - [ ] Package manager & repository
 
-### Near term TODO
-- [ ] Parallel compilation
+### Near Term TO-DO
+- [x] Parallel compilation
 - [ ] Avoid unnecessary copies during dependency resolution
 - [ ] Try to bring down LOC
+- [ ] Make it faster (doesn't even come close to 'fast' yet)
 
 ---
 
