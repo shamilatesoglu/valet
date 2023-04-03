@@ -26,12 +26,6 @@ std::optional<std::filesystem::path> path_from_str(std::string const& path_str, 
 						   bool is_dir)
 {
 	std::filesystem::path path(path_str);
-	try {
-		path = std::filesystem::canonical(path);
-	} catch (std::filesystem::filesystem_error const& err) {
-		spdlog::error("Filesystem Error: {}", path.generic_string());
-		return std::nullopt;
-	}
 	if (should_exist && !std::filesystem::exists(path)) {
 		spdlog::error("No such file or directory: {}", path.generic_string());
 		return std::nullopt;
@@ -41,6 +35,12 @@ std::optional<std::filesystem::path> path_from_str(std::string const& path_str, 
 		return std::nullopt;
 	} else if (!is_dir && std::filesystem::is_directory(path)) {
 		spdlog::error("Expected a file, is directory: {}", path.generic_string());
+		return std::nullopt;
+	}
+	try {
+		path = std::filesystem::canonical(path);
+	} catch (std::filesystem::filesystem_error const& err) {
+		spdlog::error("{}", err.what());
 		return std::nullopt;
 	}
 	return path;
