@@ -294,24 +294,28 @@ bool BuildPlan::execute()
 {
 	util::Stopwatch sw;
 	std::atomic_bool success = true;
-	for (auto const& cmd : compile_commands) {
-		thread_pool->enqueue([&success, cmd] {
+	for (size_t i = 0; i < compile_commands.size(); ++i) {
+		thread_pool->enqueue([&success, &cc = compile_commands, i] {
+			auto const& cmd = cc[i];
 			auto output_folder = cmd.obj_file.parent_path();
 			if (!std::filesystem::exists(output_folder))
 				std::filesystem::create_directories(output_folder);
-			spdlog::info("Compiling {}", cmd.source_file.generic_string());
+			spdlog::info("Compiling ({}/{}) {}", i, cc.size(),
+				     cmd.source_file.generic_string());
 			auto ret = ::valet::execute(cmd);
 			success.store(ret == 0 && success.load());
 		});
 	}
 	thread_pool->wait();
 	double compile_time = sw.elapsed();
-	for (auto const& cmd : link_commands) {
-		thread_pool->enqueue([&success, cmd] {
+	for (size_t i = 0; i < link_commands.size(); ++i) {
+		thread_pool->enqueue([&success, &lc = link_commands, i] {
+			auto const& cmd = lc[i];
 			auto output_folder = cmd.binary_path.parent_path();
 			if (!std::filesystem::exists(output_folder))
 				std::filesystem::create_directories(output_folder);
-			spdlog::info("Linking {}", cmd.binary_path.generic_string());
+			spdlog::info("Linking ({}/{}) {}", i, lc.size(),
+				     cmd.binary_path.generic_string());
 			auto ret = ::valet::execute(cmd);
 			success.store(ret == 0 && success.load());
 		});
@@ -319,7 +323,7 @@ bool BuildPlan::execute()
 	thread_pool->wait();
 	double link_time = sw.elapsed() - compile_time;
 	spdlog::debug("Compilation took {}", util::Stopwatch::elapsed_str(compile_time));
-	spdlog::debug("Linking took {}",  util::Stopwatch::elapsed_str(link_time));
+	spdlog::debug("Linking took {}", util::Stopwatch::elapsed_str(link_time));
 	return success;
 }
 
