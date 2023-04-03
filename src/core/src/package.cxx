@@ -45,6 +45,14 @@ std::string Package::target_ext() const
 #endif
 	case PackageType::StaticLibrary:
 		return ".a";
+	case PackageType::SharedLibrary:
+#if _WIN32
+		return ".dll";
+#elif __APPLE__
+		return ".dylib";
+#elif __linux__
+		return ".so";
+#endif
 	default:
 		return "";
 	}
@@ -177,6 +185,8 @@ std::optional<PackageType> get_package_type(const std::string& type)
 		return PackageType::Application;
 	else if (type == "lib")
 		return PackageType::StaticLibrary;
+	else if (type == "dylib")
+		return PackageType::SharedLibrary;
 	else
 		return std::nullopt;
 }

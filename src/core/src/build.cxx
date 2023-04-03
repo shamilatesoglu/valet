@@ -373,8 +373,11 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 	auto output_file_path = build_folder / package.id / package.name;
 	std::stringstream cmd;
 	switch (package.type) {
-	case Application: {
+	case Application:
+	case SharedLibrary: {
 		cmd << "clang++"; // TODO: CompilationSettings
+		if (package.type == PackageType::SharedLibrary)
+			cmd << " -shared";
 		for (auto const& o : obj_files) {
 			cmd << " " << o;
 		}
@@ -385,6 +388,17 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 		auto output_file_path_str =
 		    output_file_path.generic_string() + package.target_ext();
 		cmd << " -o " << output_file_path_str;
+		if (package.type == PackageType::SharedLibrary) {
+#if defined(_WIN32)
+			auto import_lib_path = output_file_path.generic_string() + ".lib";
+			cmd << " -Wl,-out-implib," << import_lib_path;
+#elif defined(__APPLE__)
+			cmd << " -Wl,-undefined,dynamic_lookup";
+#elif defined(__linux__)
+			auto soname = output_file_path.filename().generic_string();
+			cmd << " -Wl,-soname," << soname;
+#endif
+		}
 		break;
 	}
 	case StaticLibrary: {

@@ -19,7 +19,7 @@ namespace valet
 enum PackageType {
 	Application,
 	StaticLibrary,
-	// TODO: SharedLibrary
+	SharedLibrary
 };
 
 struct DependencyInfo {
