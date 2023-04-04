@@ -309,16 +309,14 @@ bool BuildPlan::execute()
 	thread_pool->wait();
 	double compile_time = sw.elapsed();
 	for (size_t i = 0; i < link_commands.size(); ++i) {
-		thread_pool->enqueue([&success, &lc = link_commands, i] {
-			auto const& cmd = lc[i];
-			auto output_folder = cmd.binary_path.parent_path();
-			if (!std::filesystem::exists(output_folder))
-				std::filesystem::create_directories(output_folder);
-			spdlog::info("Linking ({}/{}) {}", i, lc.size(),
-				     cmd.binary_path.generic_string());
-			auto ret = ::valet::execute(cmd);
-			success.store(ret == 0 && success.load());
-		});
+		auto const& cmd = link_commands[i];
+		auto output_folder = cmd.binary_path.parent_path();
+		if (!std::filesystem::exists(output_folder))
+			std::filesystem::create_directories(output_folder);
+		spdlog::info("Linking ({}/{}) {}", i, link_commands.size(),
+			     cmd.binary_path.generic_string());
+		auto ret = ::valet::execute(cmd);
+		success.store(ret == 0 && success.load());
 	}
 	thread_pool->wait();
 	double link_time = sw.elapsed() - compile_time;
@@ -371,6 +369,7 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 			      std::filesystem::path const& build_folder)
 {
 	auto output_file_path = build_folder / package.id / package.name;
+	auto output_file_path_str = output_file_path.generic_string();
 	std::stringstream cmd;
 	switch (package.type) {
 	case Application:
@@ -385,12 +384,10 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 			auto dep_bin_path = build_folder / dep.id / (dep.name + dep.target_ext());
 			cmd << " " << dep_bin_path.generic_string();
 		}
-		auto output_file_path_str =
-		    output_file_path.generic_string() + package.target_ext();
-		cmd << " -o " << output_file_path_str;
+		cmd << " -o " << output_file_path_str + package.target_ext();
 		if (package.type == PackageType::SharedLibrary) {
 #if defined(_WIN32)
-			auto import_lib_path = output_file_path.generic_string() + ".lib";
+			auto import_lib_path = output_file_path_str + ".lib";
 			cmd << " -Wl,-out-implib," << import_lib_path;
 #elif defined(__APPLE__)
 			cmd << " -Wl,-undefined,dynamic_lookup";
@@ -402,7 +399,7 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 		break;
 	}
 	case StaticLibrary: {
-		cmd << platform::static_link_command_prefix(output_file_path.generic_string() +
+		cmd << platform::static_link_command_prefix(output_file_path_str +
 							    package.target_ext());
 		for (auto const& o : obj_files) {
 			cmd << " " << o.generic_string();
