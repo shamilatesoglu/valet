@@ -5,8 +5,8 @@
 
 // external
 #if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN      // Exclude rarely-used stuff from Windows headers
-#define NOMINMAX                 // Exclude min and max macros
+#define WIN32_LEAN_AND_MEAN // Exclude rarely-used stuff from Windows headers
+#define NOMINMAX	    // Exclude min and max macros
 #include <windows.h>
 #elif defined(__APPLE__) || defined(__linux__)
 #include <unistd.h>
@@ -82,6 +82,58 @@ uint32_t get_cpu_count()
 	return sysinfo.dwNumberOfProcessors;
 #elif defined(__linux__) || defined(__APPLE__)
 	return sysconf(_SC_NPROCESSORS_ONLN);
+#else
+#error Unsupported platform
+#endif
+}
+
+std::string shared_lib_ext()
+{
+#if defined(_WIN32)
+	return ".dll";
+#elif defined(__APPLE__)
+	return ".dylib";
+#elif defined(__linux__)
+	return ".so";
+#else
+#error Unsupported platform
+#endif
+}
+
+std::string static_lib_ext()
+{
+#if defined(_WIN32)
+	return ".lib";
+#elif defined(__APPLE__)
+	return ".a";
+#elif defined(__linux__)
+	return ".a";
+#else
+#error Unsupported platform
+#endif
+}
+
+std::string executable_ext()
+{
+#if defined(_WIN32)
+	return ".exe";
+#elif defined(__APPLE__)
+	return "";
+#elif defined(__linux__)
+	return "";
+#else
+#error Unsupported platform
+#endif
+}
+
+std::string import_lib_ext()
+{
+#if defined(_WIN32)
+	return ".lib";
+#elif defined(__APPLE__)
+	return ".a";
+#elif defined(__linux__)
+	return ".a";
 #else
 #error Unsupported platform
 #endif
