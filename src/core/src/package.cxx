@@ -2,6 +2,7 @@
 
 // valet
 #include "valet/build.hxx"
+#include "valet/platform.hxx"
 
 // external
 #define TOML_EXCEPTIONS 0
@@ -38,21 +39,11 @@ std::string Package::target_ext() const
 {
 	switch (this->type) {
 	case PackageType::Application:
-#if _WIN32
-		return ".exe";
-#else
-		return "";
-#endif
+		return platform::EXECUTABLE_EXT;
 	case PackageType::StaticLibrary:
-		return ".a";
+		return platform::STATIC_LIB_EXT;
 	case PackageType::SharedLibrary:
-#if _WIN32
-		return ".dll";
-#elif __APPLE__
-		return ".dylib";
-#elif __linux__
-		return ".so";
-#endif
+		return platform::SHARED_LIB_EXT;
 	default:
 		return "";
 	}

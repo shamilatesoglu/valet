@@ -383,12 +383,17 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 		for (auto const& dep : dependencies) {
 			auto dep_bin_path_no_ext = build_folder / dep.id / dep.name;
 			auto dep_bin_path_str = dep_bin_path_no_ext.generic_string();
+#if defined(_WIN32)
 			if (dep.type == PackageType::SharedLibrary) {
 				// Linking against a shared library at compile time, so we need to
 				// use the import library extension
-				dep_bin_path_str += platform::import_lib_ext();
+				dep_bin_path_str += platform::STATIC_LIB_EXT;
 			} else
 				dep_bin_path_str += dep.target_ext();
+#elif defined(__APPLE__)
+			dep_bin_path_str += dep.target_ext();
+#endif
+			cmd << " " << dep_bin_path_str;
 		}
 		cmd << " -o " << output_file_path_str + package.target_ext();
 		if (package.type == PackageType::SharedLibrary) {
