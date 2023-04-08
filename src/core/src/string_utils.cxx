@@ -1,5 +1,8 @@
 #include "string_utils.hxx"
 
+// stl
+#include <algorithm>
+
 namespace valet::util
 {
 
@@ -52,6 +55,20 @@ void strip(std::string& str)
 	int start_pos = start_it - str.begin();
 	int end_pos = end_it.base() - str.begin();
 	str = start_pos <= end_pos ? std::string(start_it, end_it.base()) : "";
+}
+
+std::string to_lower(std::string str)
+{
+	std::transform(str.begin(), str.end(), str.begin(),
+		       [](unsigned char c) { return std::tolower(c); });
+	return str;
+}
+
+std::string to_upper(std::string str)
+{
+	std::transform(str.begin(), str.end(), str.begin(),
+		       [](unsigned char c) { return std::toupper(c); });
+	return str;
 }
 
 } // namespace valet::util

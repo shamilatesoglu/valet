@@ -339,6 +339,13 @@ CompileCommand CompileCommand::make(std::filesystem::path const& source_file,
 	    << " -c " << source_file.generic_string()
 	    << " -std=" << package.std // TODO: ABI compatibility warnings
 	    << " -o " << obj_file.generic_string();
+#ifdef _WIN32
+	if (package.type == PackageType::SharedLibrary) {
+		auto upper = util::to_upper(package.name);
+		cmd << " -D" << upper << "_SHARED"
+		    << " -D" << upper << "_EXPORTS"; // Whaat? Really?
+	}
+#endif
 	if (opts.release)
 		cmd << " -O3";
 	else {
