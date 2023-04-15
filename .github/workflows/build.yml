@@ -32,7 +32,8 @@ jobs:
         run: |
           ./cmake_build/valet -v build -s test/test_projects/deep_deps/
           ./cmake_build/valet -v build -s test/test_projects/primes/
+          ./cmake_build/valet -v build -s test/test_projects/eratosthenes_dylib/
       
       - name: Run Unit Tests
         run: |
-          ./cmake_build/valet run -s test/valet_tests/
+          ./cmake_build/valet -v run -s test/valet_tests/
