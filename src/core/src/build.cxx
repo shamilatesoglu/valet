@@ -339,17 +339,20 @@ CompileCommand CompileCommand::make(std::filesystem::path const& source_file,
 	    << " -c " << source_file.generic_string()
 	    << " -std=" << package.std // TODO: ABI compatibility warnings
 	    << " -o " << obj_file.generic_string();
-#ifdef _WIN32
 	if (package.type == PackageType::SharedLibrary) {
+#ifdef _WIN32
 		auto upper = util::to_upper(package.name);
 		cmd << " -D" << upper << "_SHARED"
 		    << " -D" << upper << "_EXPORTS"; // Whaat? Really?
-	}
 #endif
+	}
 	if (opts.release)
 		cmd << " -O3";
 	else {
 		cmd << " -g -O0";
+#ifdef _WIN32
+		cmd << " -gcodeview";
+#endif
 	}
 	for (auto const& opt : package.compile_options) {
 		cmd << " " << opt;
@@ -387,19 +390,18 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 		for (auto const& o : obj_files) {
 			cmd << " " << o;
 		}
+		std::vector<std::pair<std::filesystem::path, std::filesystem::path>>
+		    copy_dylib_deps;
 		for (auto const& dep : dependencies) {
 			auto dep_bin_path_no_ext = build_folder / dep.id / dep.name;
 			auto dep_bin_path_str = dep_bin_path_no_ext.generic_string();
-#if defined(_WIN32)
 			if (dep.type == PackageType::SharedLibrary) {
-				// Linking against a shared library at compile time, so we need to
-				// use the import library extension
-				dep_bin_path_str += platform::STATIC_LIB_EXT;
-			} else
-				dep_bin_path_str += dep.target_ext();
-#elif defined(__APPLE__)
+				spdlog::error("Sorry, but valet does not support linking against a "
+					      "shared library yet. Offending package: {}",
+					      dep.id);
+				exit(1);
+			}
 			dep_bin_path_str += dep.target_ext();
-#endif
 			cmd << " " << dep_bin_path_str;
 		}
 		cmd << " -o " << output_file_path_str + package.target_ext();
