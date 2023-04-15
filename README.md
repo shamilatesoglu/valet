@@ -19,6 +19,8 @@ An attempt on a simple, fast and easy to use C++ build system, inspired by Rust'
 - [ ] Try to bring down LOC
 - [ ] Make it faster (doesn't even come close to 'fast' yet)
 - [ ] Extensible toolchain (e.g. custom compilers and linkers)
+- [ ] Install packages from git repositories
+- [ ] Depend a package hosted on a git repository
 
 ---
 
