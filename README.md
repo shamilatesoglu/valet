@@ -3,7 +3,8 @@ An attempt on a simple, fast and easy to use C++ build system, inspired by Rust'
 
 ## Status
 - [x] Static library projects
-- [ ] Dynamic library projects
+- [x] Dynamic library projects
+- [ ] Statically linking against dynamic libraries
 - [x] Executable projects
 - [ ] Prebuilt library dependencies (both static and dynamic)
 - [ ] Test targets
@@ -17,6 +18,7 @@ An attempt on a simple, fast and easy to use C++ build system, inspired by Rust'
 - [ ] Avoid unnecessary copies during dependency resolution
 - [ ] Try to bring down LOC
 - [ ] Make it faster (doesn't even come close to 'fast' yet)
+- [ ] Extensible toolchain (e.g. custom compilers and linkers)
 
 ---
 
