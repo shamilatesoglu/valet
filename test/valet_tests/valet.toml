@@ -4,8 +4,7 @@ description = "Unit tests for valet_core"
 type = "bin"
 version = "0.1.0"
 std = "c++20"
-compiler_path = "clang++"
 includes = ["../../third_party"]
 
 [dependencies]
-valet_core = "../../src/core"
+valet_core = { path = "../../src/core" }
