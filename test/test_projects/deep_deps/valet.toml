@@ -6,4 +6,4 @@ compiler_path = "clang++"
 type = "bin"
 
 [dependencies]
-add5 = "./third_party/add5"
+add5 = { path = "./third_party/add5" }

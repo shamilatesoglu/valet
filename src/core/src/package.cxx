@@ -163,8 +163,25 @@ std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_p
 		DependencyInfo dep_info;
 		// TODO: Include version info
 		dep_info.name = entry.first.str();
-		dep_info.folder =
-		    std::filesystem::canonical(package_folder / entry.second.as_string()->get());
+		// entry.second can either be
+		// 1. "version_string",
+		// 2. { path = "path_string" }
+		// 3. { git = "url_string" }
+		// We only support the 2nd case for now.
+
+		bool ok = false;
+		if (entry.second.is_table()) {
+			auto const& dep_tbl = entry.second.as_table();
+			if (dep_tbl->contains("path")) {
+				dep_info.folder = std::filesystem::canonical(
+				    package_folder / dep_tbl->at("path").as_string()->get());
+				ok = true;
+			}
+		}
+		if (!ok) {
+			spdlog::error("Invalid dependency: {}", entry.first.str());
+			return std::nullopt;
+		}
 		package.dependencies.push_back(dep_info);
 	}
 	return package;

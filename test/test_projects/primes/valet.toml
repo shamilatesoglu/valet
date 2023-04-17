@@ -2,8 +2,7 @@
 name = "primes"
 version = "0.1.0"
 std = "c++20"
-compiler_path = "clang++"
 type = "bin"
 
 [dependencies]
-eratosthenes = "./src/eratosthenes"
+eratosthenes = { path = "./src/eratosthenes" }

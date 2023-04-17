@@ -2,7 +2,6 @@
 name = "eratosthenes_dylib"
 version = "0.1.0"
 std = "c++20"
-compiler_path = "clang++"
 public_includes = ["./include/"]
 includes = ["./include/"]
 type = "dylib"

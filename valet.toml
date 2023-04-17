@@ -3,9 +3,8 @@ name = "valet"
 type = "bin"
 version = "0.1.0"
 std = "c++20"
-compiler_path = "clang++"
 includes = [ "./third_party" ]
 compile_options = ["-Wno-unknown-pragmas"]
 
 [dependencies]
-valet_core = "./src/core" # TODO: What to do with nested pkgs?
+valet_core = { path = "./src/core" }
