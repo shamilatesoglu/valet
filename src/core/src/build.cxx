@@ -93,7 +93,7 @@ bool run(RunParams& params)
 			spdlog::error("Unable to find root package");
 			return false;
 		}
-		if (root_package->type != PackageType::Application) {
+		if (root_package->type != Package::Type::Application) {
 			spdlog::error("Root package {} is not an executable", root_package->name);
 			return false;
 		}
@@ -277,7 +277,7 @@ std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package
 void BuildPlan::group(Package const& package, std::vector<CompileCommand> const& package_cc,
 		      std::filesystem::path const& build_folder)
 {
-	if (package.type == PackageType::Application) {
+	if (package.type == Package::Type::Application) {
 		executable_targets[package.name] = package;
 	}
 	compile_commands.insert(compile_commands.begin(), package_cc.begin(), package_cc.end());
@@ -339,7 +339,7 @@ CompileCommand CompileCommand::make(std::filesystem::path const& source_file,
 	    << " -c " << source_file.generic_string()
 	    << " -std=" << package.std // TODO: ABI compatibility warnings
 	    << " -o " << obj_file.generic_string();
-	if (package.type == PackageType::SharedLibrary) {
+	if (package.type == Package::Type::SharedLibrary) {
 #ifdef _WIN32
 		auto upper = util::to_upper(package.name);
 		cmd << " -D" << upper << "_SHARED"
@@ -382,10 +382,10 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 	auto output_file_path_str = output_file_path.generic_string();
 	std::stringstream cmd;
 	switch (package.type) {
-	case Application:
-	case SharedLibrary: {
+	case Package::Type::Application:
+	case Package::Type::SharedLibrary: {
 		cmd << "clang++"; // TODO: CompilationSettings
-		if (package.type == PackageType::SharedLibrary)
+		if (package.type == Package::Type::SharedLibrary)
 			cmd << " -shared";
 		for (auto const& o : obj_files) {
 			cmd << " " << o;
@@ -395,7 +395,7 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 		for (auto const& dep : dependencies) {
 			auto dep_bin_path_no_ext = build_folder / dep.id / dep.name;
 			auto dep_bin_path_str = dep_bin_path_no_ext.generic_string();
-			if (dep.type == PackageType::SharedLibrary) {
+			if (dep.type == Package::Type::SharedLibrary) {
 				spdlog::error("Sorry, but valet does not support linking against a "
 					      "shared library yet. Offending package: {}",
 					      dep.id);
@@ -405,7 +405,7 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 			cmd << " " << dep_bin_path_str;
 		}
 		cmd << " -o " << output_file_path_str + package.target_ext();
-		if (package.type == PackageType::SharedLibrary) {
+		if (package.type == Package::Type::SharedLibrary) {
 #if defined(_WIN32)
 #elif defined(__APPLE__)
 			cmd << " -Wl,-undefined,dynamic_lookup";
@@ -416,7 +416,7 @@ LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_file
 		}
 		break;
 	}
-	case StaticLibrary: {
+	case Package::Type::StaticLibrary: {
 		cmd << platform::static_link_command_prefix(output_file_path_str +
 							    package.target_ext());
 		for (auto const& o : obj_files) {

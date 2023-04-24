@@ -38,11 +38,11 @@ std::filesystem::path Package::target_path(bool release) const
 std::string Package::target_ext() const
 {
 	switch (this->type) {
-	case PackageType::Application:
+	case Package::Type::Application:
 		return platform::EXECUTABLE_EXT;
-	case PackageType::StaticLibrary:
+	case Package::Type::StaticLibrary:
 		return platform::STATIC_LIB_EXT;
-	case PackageType::SharedLibrary:
+	case Package::Type::SharedLibrary:
 		return platform::SHARED_LIB_EXT;
 	default:
 		return "";
@@ -95,23 +95,23 @@ std::optional<Package> find_package(std::filesystem::path const& folder)
 	spdlog::trace("Entering project folder: {}", folder.generic_string());
 	for (auto const& entry : std::filesystem::directory_iterator(folder)) {
 		if (entry.path().filename() == "valet.toml") {
-			return parse_package_cfg(entry.path()); // TODO: Handle parse errors
+			return Package::parse_from(entry.path()); // TODO: Handle parse errors
 		}
 	}
 	return std::nullopt;
 }
 
-std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_path)
+std::optional<Package> Package::parse_from(std::filesystem::path const& manifest_fp)
 {
-	auto package_folder = cfg_file_path.parent_path();
-	auto parse_res = toml::parse_file(cfg_file_path.generic_string());
+	auto package_folder = manifest_fp.parent_path();
+	auto parse_res = toml::parse_file(manifest_fp.generic_string());
 	if (!parse_res) {
 		spdlog::error("Failed to parse valet config file: {}",
-			      cfg_file_path.generic_string());
+			      manifest_fp.generic_string());
 		return std::nullopt;
 	}
-	toml::table const& cfg_tbl = parse_res;
-	auto const& package_toml = cfg_tbl["package"];
+	toml::table const& manifest = parse_res;
+	auto const& package_toml = manifest["package"];
 	Package package;
 	package.name = package_toml["name"].value_or<std::string>("");
 	package.version = package_toml["version"].value_or<std::string>("");
@@ -155,10 +155,10 @@ std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_p
 			package.compile_options.push_back(*option_node.value<std::string>());
 		}
 	}
-	if (!cfg_tbl.contains("dependencies")) {
+	if (!manifest.contains("dependencies")) {
 		return package;
 	}
-	auto const& dependencies_toml = cfg_tbl["dependencies"];
+	auto const& dependencies_toml = manifest["dependencies"];
 	for (auto const& entry : *dependencies_toml.node()->as_table()) {
 		DependencyInfo dep_info;
 		// TODO: Include version info
@@ -168,7 +168,6 @@ std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_p
 		// 2. { path = "path_string" }
 		// 3. { git = "url_string" }
 		// We only support the 2nd case for now.
-
 		bool ok = false;
 		if (entry.second.is_table()) {
 			auto const& dep_tbl = entry.second.as_table();
@@ -176,7 +175,17 @@ std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_p
 				dep_info.folder = std::filesystem::canonical(
 				    package_folder / dep_tbl->at("path").as_string()->get());
 				ok = true;
+			} else if (dep_tbl->contains("git")) {
+				std::optional<std::string> branch = std::nullopt;
+				if (dep_tbl->contains("branch")) {
+					branch = dep_tbl->at("branch").as_string()->get();
+				}
+				// TODO.
 			}
+		}
+		if (entry.second.is_string()) {
+			spdlog::error("Currently, valet only supports local and git dependencies. :(");
+			return std::nullopt;
 		}
 		if (!ok) {
 			spdlog::error("Invalid dependency: {}", entry.first.str());
@@ -187,14 +196,14 @@ std::optional<Package> parse_package_cfg(std::filesystem::path const& cfg_file_p
 	return package;
 }
 
-std::optional<PackageType> get_package_type(const std::string& type)
+std::optional<Package::Type> get_package_type(const std::string& type)
 {
 	if (type == "bin")
-		return PackageType::Application;
+		return Package::Type::Application;
 	else if (type == "lib")
-		return PackageType::StaticLibrary;
+		return Package::Type::StaticLibrary;
 	else if (type == "dylib")
-		return PackageType::SharedLibrary;
+		return Package::Type::SharedLibrary;
 	else
 		return std::nullopt;
 }
