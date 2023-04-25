@@ -31,6 +31,7 @@ bool build(BuildParams const& params, BuildPlan* out)
 		spdlog::info("Cleaning build");
 		std::filesystem::remove_all(build_folder);
 	}
+	util::Stopwatch sw;
 	auto package_graph = make_package_graph(params.project_folder);
 	if (!package_graph) {
 		spdlog::error("Unable to parse package graph");
@@ -40,19 +41,24 @@ bool build(BuildParams const& params, BuildPlan* out)
 		spdlog::error("No package found under {}", params.project_folder.generic_string());
 		return false;
 	}
+	spdlog::debug("Package graph parsed in {}", sw.elapsed_str());
+	sw.reset();
 	auto build_plan = BuildPlan::make(*package_graph, params.compile_options, build_folder);
 	if (!build_plan) {
 		spdlog::error("Unable to generate build plan");
 		return false;
 	}
 	build_plan->root = *find_package(params.project_folder); // Copies, copies everywhere.
+	spdlog::debug("Build plan generated in {}", sw.elapsed_str());
 	if (params.export_compile_commands) {
 		build_plan->export_compile_commands(params.project_folder);
 	}
+	sw.reset();
 	if (params.dry_run) {
 		return true;
 	}
 	build_plan->optimize();
+	spdlog::debug("Build plan optimized in {}", sw.elapsed_str());
 	bool success = build_plan->execute();
 	if (out)
 		*out = *build_plan;

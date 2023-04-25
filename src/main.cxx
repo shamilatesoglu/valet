@@ -113,8 +113,9 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	spdlog::set_level(program.get<bool>("verbose") ? spdlog::level::trace
-						       : spdlog::level::info);
+	spdlog::set_level(program.get<bool>("verbose")
+			      ? spdlog::level::debug
+			      : spdlog::level::info); // TODO: Make this configurable
 	spdlog::set_pattern("%^[%=8l] %v%$");
 
 	if (program.is_subcommand_used("install")) {

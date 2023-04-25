@@ -2,7 +2,7 @@
 
 // valet
 #include "valet/build.hxx"
-#include "valet/platform.hxx"
+#include "platform.hxx"
 
 // stl
 #include <filesystem>

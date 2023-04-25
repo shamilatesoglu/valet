@@ -1,5 +1,6 @@
 #pragma once
 
+// stl
 #include <string>
 #include <optional>
 #include <filesystem>
@@ -8,7 +9,7 @@ namespace valet
 {
 
 struct git_info {
-        std::string name;
+	std::string name;
 	std::string remote_url;
 	std::optional<std::string> branch;
 	std::optional<std::string> rev;
