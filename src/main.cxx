@@ -2,7 +2,6 @@
 
 // valet
 #include <valet/build.hxx>
-#include <valet/platform.hxx>
 #include <valet/install.hxx>
 #include <valet/stopwatch.hxx>
 

@@ -2,7 +2,8 @@
 
 // valet
 #include "valet/build.hxx"
-#include "valet/platform.hxx"
+#include "platform.hxx"
+#include "git.hxx"
 
 // external
 #define TOML_EXCEPTIONS 0
@@ -176,15 +177,39 @@ std::optional<Package> Package::parse_from(std::filesystem::path const& manifest
 				    package_folder / dep_tbl->at("path").as_string()->get());
 				ok = true;
 			} else if (dep_tbl->contains("git")) {
-				std::optional<std::string> branch = std::nullopt;
+				git_info git;
+				git.name = dep_info.name;
+				git.remote_url = dep_tbl->at("git").as_string()->get();
+				git.branch = std::nullopt;
+				git.rev = std::nullopt;
 				if (dep_tbl->contains("branch")) {
-					branch = dep_tbl->at("branch").as_string()->get();
+					git.branch = dep_tbl->at("branch").as_string()->get();
+					spdlog::debug("Git dependency {}: Using branch {}",
+						      git.name, *git.branch);
+				} else if (dep_tbl->contains("rev")) {
+					git.rev = dep_tbl->at("rev").as_string()->get();
+					spdlog::debug("Git dependency {}: Using rev {}", git.name,
+						      *git.rev);
+				} else if (dep_tbl->contains("tag")) {
+					git.rev = dep_tbl->at("tag").as_string()->get();
+					spdlog::debug("Git dependency {}: Using tag {}", git.name,
+						      *git.rev);
+				} else {
+					spdlog::debug("Git dependency {}: Using default branch",
+						      git.name);
 				}
-				// TODO.
+				std::filesystem::path out_folder;
+				if (!prepare_git_dep(git, out_folder)) {
+					spdlog::error("Failed to prepare git dependency {}",
+						      git.name);
+					return std::nullopt;
+				}
+				dep_info.folder = out_folder;
 			}
 		}
 		if (entry.second.is_string()) {
-			spdlog::error("Currently, valet only supports local and git dependencies. :(");
+			spdlog::error(
+			    "Currently, valet only supports local and git dependencies. :(");
 			return std::nullopt;
 		}
 		if (!ok) {

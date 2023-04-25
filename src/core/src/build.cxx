@@ -4,7 +4,7 @@
 #include "valet/package.hxx"
 #include "string_utils.hxx"
 #include "valet/stopwatch.hxx"
-#include "valet/platform.hxx"
+#include "platform.hxx"
 #include "valet/thread_utils.hxx"
 
 // stl
