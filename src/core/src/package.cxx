@@ -199,12 +199,13 @@ std::optional<Package> Package::parse_from(std::filesystem::path const& manifest
 						      git.name);
 				}
 				std::filesystem::path out_folder;
-				if (!prepare_git_dep(git, out_folder)) {
+				if (!prepare_git_dep(package_folder, git, out_folder)) {
 					spdlog::error("Failed to prepare git dependency {}",
 						      git.name);
 					return std::nullopt;
 				}
 				dep_info.folder = out_folder;
+				ok = true;
 			}
 		}
 		if (entry.second.is_string()) {

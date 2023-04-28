@@ -2,6 +2,7 @@
 
 // valet
 #include "valet/package.hxx"
+#include "valet/command.hxx"
 #include "valet/thread_utils.hxx"
 
 // external
@@ -13,11 +14,6 @@
 
 namespace valet
 {
-
-struct CompileOptions {
-	bool release = false;
-	std::vector<std::string> additional_options;
-};
 
 struct BuildParams {
 	std::filesystem::path project_folder;
@@ -36,27 +32,6 @@ struct RunParams {
 bool build(BuildParams const& params, class BuildPlan* out = nullptr);
 
 bool run(RunParams& params);
-
-struct Command {
-	std::string cmd;
-};
-
-struct CompileCommand : Command {
-	std::filesystem::path source_file;
-	std::filesystem::path obj_file;
-	static CompileCommand make(std::filesystem::path const& source_file, Package const& package,
-				   std::vector<Package> const& dependencies,
-				   CompileOptions const& opts,
-				   std::filesystem::path const& output_folder);
-};
-
-struct LinkCommand : Command {
-	std::vector<std::filesystem::path> obj_files;
-	std::filesystem::path binary_path;
-	static LinkCommand make(std::vector<std::filesystem::path> const& obj_files,
-				Package const& package, std::vector<Package> const& dependencies,
-				std::filesystem::path const& output_folder);
-};
 
 class BuildPlan
 {
@@ -79,8 +54,6 @@ protected:
 	std::unordered_map<std::string, Package> executable_targets;
 	std::shared_ptr<util::ThreadPool> thread_pool;
 };
-
-int execute(Command const& command);
 
 void collect_source_files(std::filesystem::path const& folder,
 			  std::vector<std::filesystem::path>& out);

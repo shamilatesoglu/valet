@@ -15,6 +15,7 @@ struct git_info {
 	std::optional<std::string> rev;
 };
 
-bool prepare_git_dep(git_info const& info, std::filesystem::path& out_folder);
+bool prepare_git_dep(std::filesystem::path const& dependant, git_info const& info,
+		     std::filesystem::path& out_folder);
 
 } // namespace valet

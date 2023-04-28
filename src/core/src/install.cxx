@@ -12,7 +12,7 @@ namespace valet
 
 std::filesystem::path get_default_install_path()
 {
-	return platform::get_home_dir() / ".valet" / "bin";
+	return platform::valet_dir() / "bin";
 }
 
 bool install_local_package(std::filesystem::path const& project_folder,

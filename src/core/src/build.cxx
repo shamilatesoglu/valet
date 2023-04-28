@@ -4,6 +4,7 @@
 #include "valet/package.hxx"
 #include "string_utils.hxx"
 #include "valet/stopwatch.hxx"
+#include "valet/command.hxx"
 #include "platform.hxx"
 #include "valet/thread_utils.hxx"
 
@@ -110,18 +111,6 @@ bool run(RunParams& params)
 			return false;
 	}
 	return true;
-}
-
-int execute(Command const& command)
-{
-	util::Stopwatch stopwatch;
-	spdlog::trace("Executing: {}", command.cmd);
-	auto ret = std::system(command.cmd.c_str());
-	if (ret) {
-		spdlog::error("Command failed with return code {}", ret);
-	}
-	spdlog::trace("Command took {}", stopwatch.elapsed_str());
-	return ret;
 }
 
 void collect_source_files(std::filesystem::path const& folder,

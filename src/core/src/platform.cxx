@@ -51,7 +51,7 @@ void escape_cli_command(std::string& command)
 #endif
 }
 
-std::filesystem::path get_home_dir()
+std::filesystem::path home_dir()
 {
 #if defined(_WIN32)
 #if defined(_MSC_VER)
@@ -85,6 +85,21 @@ uint32_t get_cpu_count()
 #else
 #error Unsupported platform
 #endif
+}
+
+std::filesystem::path valet_dir()
+{
+	return home_dir() / ".valet";
+}
+
+std::filesystem::path garage_dir()
+{
+	return valet_dir() / "garage";
+}
+
+std::filesystem::path temp_dir()
+{
+	return valet_dir() / "temp";
 }
 
 } // namespace valet::platform
