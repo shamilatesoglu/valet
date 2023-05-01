@@ -7,17 +7,25 @@
 		{
 			"type": "lldb",
 			"request": "launch",
-			"name": "Debug",
-			"program": "${workspaceFolder}/build/valet=0.1.0/valet.exe",
+			"name": "Debug (test: deep_deps)",
+			"program": "${workspaceFolder}/build/valet=0.1.0/valet",
 			"args": ["-s", "./test/test_projects/deep_deps"],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug (CMake) (test: deep_deps)",
+			"program": "${workspaceFolder}/ninja_build/valet",
+			"args": ["build", "-s", "./test/test_projects/deep_deps"],
 			"cwd": "${workspaceFolder}"
 		}, 
 		{
 			"type": "lldb",
 			"request": "launch",
-			"name": "Debug (Ninja)",
-			"program": "${workspaceFolder}/ninja_build/valet.exe",
-			"args": ["build", "-s", "./test/test_projects/deep_deps"],
+			"name": "Debug (CMake) (test: primes_remote_deps)",
+			"program": "${workspaceFolder}/ninja_build/valet",
+			"args": ["build", "-s", "./test/test_projects/primes_remote_dep"],
 			"cwd": "${workspaceFolder}"
 		}
 	]

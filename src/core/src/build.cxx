@@ -212,7 +212,8 @@ bool has_modified_deps(DepFileEntry const& output_dep_entry,
 {
 	for (auto const& dep : deps) {
 		try {
-			if (!std::filesystem::exists(output_dep_entry.path()))
+			if (!std::filesystem::exists(output_dep_entry.path()) ||
+			    !std::filesystem::exists(dep.path()))
 				return true;
 			auto tmout = std::filesystem::last_write_time(output_dep_entry.path());
 			auto tmdep = std::filesystem::last_write_time(dep.path());
