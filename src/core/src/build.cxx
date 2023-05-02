@@ -245,8 +245,8 @@ std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package
 		return std::nullopt;
 	auto const& sorted = *sorted_opt;
 	BuildPlan plan;
-    auto rec = platform::get_cpu_count() / 2 - 1;
-    auto nth = std::max<uint32_t>(1, rec);
+    auto rec = std::max(1u, platform::get_cpu_count() / 2) - 1;
+    auto nth = std::max(1u, rec);
     spdlog::debug("Using {} threads to build", nth);
 	plan.thread_pool = std::make_shared<util::ThreadPool>(nth);
 	plan.package_graph = package_graph;
