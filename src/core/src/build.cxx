@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include <regex>
+#include <algorithm>
 
 namespace valet
 {
@@ -244,7 +245,10 @@ std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package
 		return std::nullopt;
 	auto const& sorted = *sorted_opt;
 	BuildPlan plan;
-	plan.thread_pool = std::make_shared<util::ThreadPool>(platform::get_cpu_count() / 3);
+    auto rec = platform::get_cpu_count() / 2 - 1;
+    auto nth = std::max<uint32_t>(1, rec);
+    spdlog::debug("Using {} threads to build", nth);
+	plan.thread_pool = std::make_shared<util::ThreadPool>(nth);
 	plan.package_graph = package_graph;
 	for (auto const& package : sorted) {
 		std::vector<std::filesystem::path> source_files;
