@@ -11,6 +11,7 @@ An attempt on a simple, fast and easy to use C++ build system, inspired by Rust'
 - [ ] Benchmark targets
 - [ ] Compilation stats (time, memory, etc.)
 - [ ] Compilation cache
+- [ ] Git repository support
 - [ ] Package manager & repository
 
 ### Near Term TO-DO
@@ -21,6 +22,9 @@ An attempt on a simple, fast and easy to use C++ build system, inspired by Rust'
 - [ ] Extensible toolchain (e.g. custom compilers and linkers)
 - [ ] Install packages from git repositories
 - [ ] Depend a package hosted on a git repository
+
+### Things to think about
+- [ ] Daemon service compiling in the background when a file changed (to optimize iteration times)
 
 ---
 
