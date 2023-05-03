@@ -42,8 +42,13 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 	cmd += " " + info.remote_url + " --recurse-submodules --depth=1";
 	std::string hash = SHA1()(info.remote_url);
 	std::filesystem::path clone_folder = platform::garage_dir() / hash;
-	if (!std::filesystem::exists(clone_folder)) {
-		std::filesystem::create_directories(clone_folder);
+	if (!std::filesystem::exists(platform::garage_dir())) {
+		std::filesystem::create_directories(platform::garage_dir());
+	}
+	else if (std::filesystem::exists(clone_folder)) {
+		spdlog::info("Found {} in cache", info.remote_url);
+		out_folder = clone_folder;
+		return true;
 	}
 	cmd += " " + clone_folder.generic_string();
 	spdlog::info("Cloning {} to {}", info.remote_url, clone_folder.generic_string());
