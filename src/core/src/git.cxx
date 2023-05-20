@@ -30,9 +30,11 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 {
 	// 1. Clone the repo to user's cache folder
 	// 2. Checkout the branch/rev/tag
-	// 3. Make sure the folder contains a valet manifest.
-	// 4. Save the folder path to some place private to current package that is being built,
-	//    so that it doesn't get fetched every time unless a 'valet update' is called.
+	// 3. (TODO) Make sure the folder contains a valet manifest.
+	// 4. (TODO) Save the currently used revision to some 
+	//    place private to the package that is being built, 
+	//    so that it doesn't get fetched every time unless
+	//    a 'valet update' is called.
 	// 5. Return the folder path to the caller.
 
 	std::string cmd = "git clone";
@@ -46,7 +48,7 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 		std::filesystem::create_directories(platform::garage_dir());
 	}
 	else if (std::filesystem::exists(clone_folder)) {
-		spdlog::info("Found {} in cache", info.remote_url);
+		spdlog::debug("Found {} in cache", info.remote_url);
 		out_folder = clone_folder;
 		return true;
 	}

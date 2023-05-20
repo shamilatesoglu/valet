@@ -1,4 +1,4 @@
-# :/ I know, right? It's a pity.
+# :/ I know, right?
 cmake_minimum_required(VERSION 3.22)
 
 project(valet)
