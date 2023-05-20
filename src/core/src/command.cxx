@@ -12,11 +12,17 @@
 namespace valet
 {
 
-int execute(Command const& command)
+int execute(Command const& command, std::optional<std::filesystem::path> const& working_dir)
 {
 	util::Stopwatch stopwatch;
-	spdlog::trace("Executing: {}", command.cmd);
-	auto ret = std::system(command.cmd.c_str());
+	std::string cmd;
+	if (working_dir) {
+		cmd = "cd " + working_dir->generic_string() + " && " + command.cmd;
+	} else {
+		cmd = command.cmd;
+	}
+	spdlog::trace("Executing: {}", cmd);
+	auto ret = std::system(cmd.c_str());
 	if (ret) {
 		spdlog::error("Command failed with return code {}", ret);
 	}

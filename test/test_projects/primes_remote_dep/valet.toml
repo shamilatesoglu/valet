@@ -5,4 +5,4 @@ std = "c++20"
 type = "bin"
 
 [dependencies]
-eratosthenes = { git = "https://github.com/shamilatesoglu/eratosthenes.git", branch = "main" }
+eratosthenes = { git = "https://github.com/shamilatesoglu/eratosthenes.git", rev = "920417d0" }

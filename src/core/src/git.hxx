@@ -13,6 +13,7 @@ struct git_info {
 	std::string remote_url;
 	std::optional<std::string> branch;
 	std::optional<std::string> rev;
+	std::string get_sha1() const;
 };
 
 bool prepare_git_dep(std::filesystem::path const& dependant, git_info const& info,
