@@ -75,7 +75,7 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 		return false;
 	}
 	if (info.rev) {
-		cmd = "git switch " + *info.rev;
+		cmd = "git checkout " + *info.rev;
 		spdlog::debug("Checking out {} in {}", *info.rev, clone_folder.generic_string());
 		if (execute({cmd}, clone_folder)) {
 			spdlog::error("Failed to checkout {} in {}", *info.rev,

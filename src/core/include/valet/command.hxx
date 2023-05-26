@@ -37,6 +37,7 @@ struct LinkCommand : Command {
 				std::filesystem::path const& output_folder);
 };
 
-int execute(Command const& command, std::optional<std::filesystem::path> const& working_dir = std::nullopt);
+int execute(Command const& command,
+	    std::optional<std::filesystem::path> const& working_dir = std::nullopt);
 
 } // namespace valet
