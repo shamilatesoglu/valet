@@ -14,11 +14,7 @@ namespace valet
 std::string git_info::get_sha1() const
 {
 	std::string content = remote_url + "\n";
-	if (branch) {
-		content += *branch + "\n";
-	} else if (rev) {
-		content += *rev + "\n";
-	}
+	content += rev + "\n";
 	return SHA1()(content);
 }
 
@@ -49,9 +45,6 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 	// 5. Return the folder path to the caller.
 
 	std::string cmd = "git clone";
-	if (info.branch) {
-		cmd += " -b " + *info.branch;
-	}
 	cmd += " " + info.remote_url + " --recurse-submodules --depth=1 --shallow-submodules";
 	std::string hash = info.get_sha1();
 	std::filesystem::path clone_folder = platform::garage_dir() / hash;
@@ -74,14 +67,12 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 			      clone_folder.generic_string());
 		return false;
 	}
-	if (info.rev) {
-		cmd = "git checkout " + *info.rev;
-		spdlog::debug("Checking out {} in {}", *info.rev, clone_folder.generic_string());
-		if (execute({cmd}, clone_folder)) {
-			spdlog::error("Failed to checkout {} in {}", *info.rev,
-				      clone_folder.generic_string());
-			return false;
-		}
+	cmd = "git checkout " + info.rev;
+	spdlog::debug("Checking out {} in {}", info.rev, clone_folder.generic_string());
+	if (execute({cmd}, clone_folder)) {
+		spdlog::error("Failed to checkout {} in {}", info.rev,
+				clone_folder.generic_string());
+		return false;
 	}
 	out_folder = clone_folder;
 	return true;

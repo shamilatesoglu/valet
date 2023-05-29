@@ -168,7 +168,7 @@ std::optional<Package> Package::parse_from(std::filesystem::path const& manifest
 		// 1. "version_string",
 		// 2. { path = "path_string" }
 		// 3. { git = "url_string" }
-		// We only support the 2nd case for now.
+		// We only support the 2nd & 3rd cases for now.
 		bool ok = false;
 		if (entry.second.is_table()) {
 			auto const& dep_tbl = entry.second.as_table();
@@ -180,23 +180,18 @@ std::optional<Package> Package::parse_from(std::filesystem::path const& manifest
 				git_info git;
 				git.name = dep_info.name;
 				git.remote_url = dep_tbl->at("git").as_string()->get();
-				git.branch = std::nullopt;
-				git.rev = std::nullopt;
-				if (dep_tbl->contains("branch")) {
-					git.branch = dep_tbl->at("branch").as_string()->get();
-					spdlog::debug("Git dependency {}: Using branch {}",
-						      git.name, *git.branch);
-				} else if (dep_tbl->contains("rev")) {
+				if (dep_tbl->contains("rev")) {
 					git.rev = dep_tbl->at("rev").as_string()->get();
 					spdlog::debug("Git dependency {}: Using rev {}", git.name,
-						      *git.rev);
+						      git.rev);
 				} else if (dep_tbl->contains("tag")) {
 					git.rev = dep_tbl->at("tag").as_string()->get();
 					spdlog::debug("Git dependency {}: Using tag {}", git.name,
-						      *git.rev);
+						      git.rev);
 				} else {
-					spdlog::debug("Git dependency {}: Using default branch",
+					spdlog::error("Git dependency {}: No revision or tag specified",
 						      git.name);
+					return std::nullopt;
 				}
 				std::filesystem::path out_folder;
 				if (!prepare_git_dep(package_folder, git, out_folder)) {

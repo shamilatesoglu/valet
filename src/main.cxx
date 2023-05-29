@@ -96,14 +96,6 @@ int main(int argc, char* argv[])
 	    "Clean build folder");
 	program.add_subparser(run);
 
-	argparse::ArgumentParser update("update", VALET_VERSION);
-	update.add_description("Updates the dependencies of the package.");
-	update.add_argument("--offline")
-	    .default_value(false)
-	    .implicit_value(true)
-	    .help("Tries to update package dependencies without accessing the network");
-	program.add_subparser(update);
-
 	argparse::ArgumentParser install("install", VALET_VERSION);
 	install.add_description(
 	    "Installs a package from a remote repository or from a local path.");
@@ -196,11 +188,7 @@ int main(int argc, char* argv[])
 		}
 		return 0;
 	}
-	if (program.is_subcommand_used("update")) {
-		bool offline = update.get<bool>("offline");
-		spdlog::warn("Update command not implemented yet.");
-		return 1;
-	}
+
 	spdlog::error("No subcommand specified");
 	std::cout << program;
 	return 1;

@@ -11,8 +11,7 @@ namespace valet
 struct git_info {
 	std::string name;
 	std::string remote_url;
-	std::optional<std::string> branch;
-	std::optional<std::string> rev;
+	std::string rev;
 	std::string get_sha1() const;
 };
 
