@@ -14,6 +14,8 @@ namespace valet
 std::string git_info::get_sha1() const
 {
 	std::string content = remote_url + "\n";
+	// TODO: DO NOT use remote URL as part of the hash. It can change.
+	//       Use the package name inside the manifest instead.
 	content += rev + "\n";
 	return SHA1()(content);
 }

@@ -8,6 +8,7 @@
 namespace valet
 {
 
+// TODO: Branch & default branch support. Currently only supports commit hashes or tags.
 struct git_info {
 	std::string name;
 	std::string remote_url;
