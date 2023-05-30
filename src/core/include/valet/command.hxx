@@ -14,6 +14,7 @@ namespace valet
 struct CompileOptions {
 	bool release = false;
 	std::vector<std::string> additional_options;
+	uint32_t mp_count = 0;
 };
 
 struct Command {

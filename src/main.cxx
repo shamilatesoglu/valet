@@ -76,6 +76,10 @@ int main(int argc, char* argv[])
 	    .default_value(false)
 	    .implicit_value(true)
 	    .help("Export compilation commands database");
+	build.add_argument("--multi-process-count", "-mp")
+	    .default_value(0u)
+	    .scan<'u', uint32_t>()
+	    .help("Number of compiler instances to run simultaneously");
 	program.add_subparser(build);
 
 	argparse::ArgumentParser run("run", VALET_VERSION);
@@ -151,16 +155,18 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 		auto project_folder = *project_folder_opt;
-		if (!valet::build(
-			{.project_folder = project_folder,
-			 .compile_options =
-			     valet::CompileOptions{
-				 .release = build.get<bool>("release"),
-			     },
-			 .dry_run = program.get<bool>("dry-run"),
-			 .clean = build.get<bool>("clean"),
-			 .export_compile_commands = build.get<bool>("export-compile-commands"),
-			 .collect_stats = false})) {
+		auto build_params = valet::BuildParams{
+		    .project_folder = project_folder,
+		    .compile_options =
+			valet::CompileOptions{
+			    .release = build.get<bool>("release"),
+			    .mp_count = build.get<uint32_t>("multi-process-count"),
+			},
+		    .dry_run = program.get<bool>("dry-run"),
+		    .clean = build.get<bool>("clean"),
+		    .export_compile_commands = build.get<bool>("export-compile-commands"),
+		    .collect_stats = false};
+		if (!valet::build(build_params)) {
 			spdlog::error("Build failed");
 			return 1;
 		}
