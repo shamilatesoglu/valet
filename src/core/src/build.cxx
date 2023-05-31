@@ -347,73 +347,66 @@ bool BuildPlan::execute()
 	spdlog::debug("Compilation took {}", util::Stopwatch::elapsed_str(compile_time));
 	spdlog::debug("Linking took {}", util::Stopwatch::elapsed_str(link_time));
 	if (collect_stats) {
-		std::cout << "Build stats:\n" << stats.to_string() << std::endl;
+		stats.total_time_s = sw.elapsed();
+		std::cout << stats.to_string() << std::endl;
 	}
 	return success;
 }
-
 std::string BuildStats::to_string() const
 {
-	// Sort compilation_times in descending order based on the compilation times
-	std::vector<std::pair<std::filesystem::path, double>> sorted_compilation_times(
-	    compilation_times);
-	std::sort(sorted_compilation_times.begin(), sorted_compilation_times.end(),
-		  [](const auto& a, const auto& b) { return a.second > b.second; });
-
-	// Sort link_times in descending order based on the link times
-	std::vector<std::pair<std::filesystem::path, double>> sorted_link_times(link_times);
-	std::sort(sorted_link_times.begin(), sorted_link_times.end(),
-		  [](const auto& a, const auto& b) { return a.second > b.second; });
-
-	// Calculate the maximum width of the path column
-	size_t max_path_width = 0;
-	for (const auto& entry : sorted_compilation_times) {
-		max_path_width = std::max(max_path_width, entry.first.string().size());
-	}
-	for (const auto& entry : sorted_link_times) {
-		max_path_width = std::max(max_path_width, entry.first.string().size());
-	}
-
-	// Create a stringstream to build the formatted table
 	std::stringstream ss;
 
-	// Table header
-	ss << std::left << std::setw(max_path_width) << "File"
-	   << "  Compilation Time (s)\n";
-	ss << std::setfill('=') << std::setw(max_path_width + 23) << ""
-	   << "\n";
-	ss << std::setfill(' ');
-
 	// Compilation times table
-	for (const auto& entry : sorted_compilation_times) {
-		ss << std::left << std::setw(max_path_width) << entry.first.string() << "  "
-		   << std::right << std::setw(15) << std::fixed << std::setprecision(6)
-		   << entry.second << "\n";
-	}
-
-	// Empty line between tables
-	ss << "\n";
-
-	// Table header for link times
-	ss << std::left << std::setw(max_path_width) << "File"
-	   << "  Link Time (s)\n";
-	ss << std::setfill('=') << std::setw(max_path_width + 16) << ""
+	ss << std::setw(40) << std::left << "Source File" << std::setw(30) << std::right
+	   << "Compilation Time (s)"
 	   << "\n";
+	ss << std::setw(80) << std::setfill('-') << "\n";
 	ss << std::setfill(' ');
+
+	std::vector<std::pair<std::string, double>> compilation_times_formatted;
+	for (auto&& [path, time] : compilation_times) {
+		std::string filename = std::filesystem::path(path).filename().string();
+		compilation_times_formatted.emplace_back(filename, time);
+	}
+	std::sort(
+	    compilation_times_formatted.begin(), compilation_times_formatted.end(),
+	    [](const std::pair<std::string, double>& lhs,
+	       const std::pair<std::string, double>& rhs) { return lhs.second > rhs.second; });
+
+	for (auto&& [filename, time] : compilation_times_formatted) {
+		ss << std::setw(40) << std::left << filename << std::setw(30) << std::right
+		   << std::fixed << std::setprecision(2) << time << "\n";
+	}
+	ss << "\n";
 
 	// Link times table
-	for (const auto& entry : sorted_link_times) {
-		ss << std::left << std::setw(max_path_width) << entry.first.string() << "  "
-		   << std::right << std::setw(15) << std::fixed << std::setprecision(6)
-		   << entry.second << "\n";
+	ss << std::setw(40) << std::left << "Binary" << std::setw(30) << std::right
+	   << "Link Time (s)"
+	   << "\n";
+	ss << std::setw(80) << std::setfill('-') << "\n";
+	ss << std::setfill(' ');
+
+	std::vector<std::pair<std::string, double>> link_times_formatted;
+	for (auto&& [path, time] : link_times) {
+		std::string filename = std::filesystem::path(path).filename().string();
+		link_times_formatted.emplace_back(filename, time);
+	}
+	std::sort(
+	    link_times_formatted.begin(), link_times_formatted.end(),
+	    [](const std::pair<std::string, double>& lhs,
+	       const std::pair<std::string, double>& rhs) { return lhs.second > rhs.second; });
+
+	for (auto&& [filename, time] : link_times_formatted) {
+		ss << std::setw(40) << std::left << filename << std::setw(30) << std::right
+		   << std::fixed << std::setprecision(2) << time << "\n";
 	}
 
-	// Summary statistics
-	ss << "\n";
-	ss << "Total Time: " << total_time_s << "s\n";
-	ss << "Package Resolution Time: " << package_resolution_time_s << "s\n";
-	ss << "Compilation Time: " << compilation_time_s << "s\n";
-	ss << "Link Time: " << link_time_s << "s\n";
+	ss << "\nTotal time: " << std::fixed << std::setprecision(2) << total_time_s << " s\n"
+	   << "Package resolution time: " << std::fixed << std::setprecision(2)
+	   << package_resolution_time_s << " s\n"
+	   << "Compilation time: " << std::fixed << std::setprecision(2) << compilation_time_s
+	   << " s\n"
+	   << "Link time: " << std::fixed << std::setprecision(2) << link_time_s << " s\n";
 
 	return ss.str();
 }
