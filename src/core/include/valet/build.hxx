@@ -29,6 +29,16 @@ struct RunParams {
 	std::vector<std::string> targets; // If emtpy, run the root package if it is an executable.
 };
 
+struct BuildStats {
+	double total_time_s = 0.0;
+	double package_resolution_time_s = 0.0;
+	double compilation_time_s = 0.0;
+	double link_time_s = 0.0;
+	std::vector<std::pair<std::filesystem::path, double>> compilation_times;
+	std::vector<std::pair<std::filesystem::path, double>> link_times;
+	std::string to_string() const;
+};
+
 bool build(BuildParams const& params, class BuildPlan* out = nullptr);
 
 bool run(RunParams& params);
@@ -38,6 +48,7 @@ class BuildPlan
 public:
 	static std::optional<BuildPlan> make(DependencyGraph<Package> const& package_graph,
 					     CompileOptions const& opts,
+					     bool collect_stats,
 					     std::filesystem::path const& build_folder);
 	void group(Package const& package, std::vector<CompileCommand> const& package_cc,
 		   std::filesystem::path const& build_folder);
@@ -53,6 +64,9 @@ protected:
 	std::vector<LinkCommand> link_commands;
 	std::unordered_map<std::string, Package> executable_targets;
 	std::shared_ptr<util::ThreadPool> thread_pool;
+
+	bool collect_stats = false;
+	BuildStats stats;
 };
 
 void collect_source_files(std::filesystem::path const& folder,

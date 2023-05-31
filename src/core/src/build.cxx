@@ -14,6 +14,7 @@
 #include <fstream>
 #include <regex>
 #include <algorithm>
+#include <iostream>
 
 namespace valet
 {
@@ -45,7 +46,8 @@ bool build(BuildParams const& params, BuildPlan* out)
 	}
 	spdlog::debug("Package graph parsed in {}", sw.elapsed_str());
 	sw.reset();
-	auto build_plan = BuildPlan::make(*package_graph, params.compile_options, build_folder);
+	auto build_plan = BuildPlan::make(*package_graph, params.compile_options,
+					  params.collect_stats, build_folder);
 	if (!build_plan) {
 		spdlog::error("Unable to generate build plan");
 		return false;
@@ -237,7 +239,7 @@ bool has_modified_deps(DepFileEntry const& output_dep_entry,
 }
 
 std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package_graph,
-					 CompileOptions const& opts,
+					 CompileOptions const& opts, bool collect_stats,
 					 std::filesystem::path const& build_folder)
 {
 	auto sorted_opt = package_graph.sorted();
@@ -245,6 +247,7 @@ std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package
 		return std::nullopt;
 	auto const& sorted = *sorted_opt;
 	BuildPlan plan;
+	plan.collect_stats = collect_stats;
 	auto nth = opts.mp_count;
 	if (nth == 0) {
 		auto rec = std::max(1u, platform::get_cpu_count() / 2) - 1;
@@ -295,17 +298,27 @@ void BuildPlan::group(Package const& package, std::vector<CompileCommand> const&
 
 bool BuildPlan::execute()
 {
+	static std::mutex stats_mutex;
 	util::Stopwatch sw;
 	std::atomic_bool success = true;
 	for (size_t i = 0; i < compile_commands.size(); ++i) {
-		thread_pool->enqueue([&success, &cc = compile_commands, i] {
+		thread_pool->enqueue([&success, &cc = compile_commands, i, this] {
 			auto const& cmd = cc[i];
 			auto output_folder = cmd.obj_file.parent_path();
 			if (!std::filesystem::exists(output_folder))
 				std::filesystem::create_directories(output_folder);
 			spdlog::info("Compiling ({}/{}) {}", i, cc.size(),
 				     cmd.source_file.generic_string());
+			util::Stopwatch csw;
 			auto ret = ::valet::execute(cmd);
+			double compilation_time = csw.elapsed();
+			if (ret == 0 && collect_stats) {
+				std::unique_lock lock(stats_mutex);
+				stats.compilation_time_s += compilation_time;
+				stats.compilation_times.emplace_back(
+				    std::pair<std::filesystem::path, double>(cmd.source_file,
+									     compilation_time));
+			}
 			success.store(ret == 0 && success.load());
 		});
 	}
@@ -318,14 +331,91 @@ bool BuildPlan::execute()
 			std::filesystem::create_directories(output_folder);
 		spdlog::info("Linking ({}/{}) {}", i, link_commands.size(),
 			     cmd.binary_path.generic_string());
+		util::Stopwatch lsw;
 		auto ret = ::valet::execute(cmd);
+		double linking_time = lsw.elapsed();
+		if (ret == 0 && collect_stats) {
+			std::unique_lock lock(stats_mutex);
+			stats.link_time_s += linking_time;
+			stats.link_times.emplace_back(std::pair<std::filesystem::path, double>(
+			    cmd.binary_path, linking_time));
+		}
 		success.store(ret == 0 && success.load());
 	}
 	thread_pool->wait();
 	double link_time = sw.elapsed() - compile_time;
 	spdlog::debug("Compilation took {}", util::Stopwatch::elapsed_str(compile_time));
 	spdlog::debug("Linking took {}", util::Stopwatch::elapsed_str(link_time));
+	if (collect_stats) {
+		std::cout << "Build stats:\n" << stats.to_string() << std::endl;
+	}
 	return success;
+}
+
+std::string BuildStats::to_string() const
+{
+	// Sort compilation_times in descending order based on the compilation times
+	std::vector<std::pair<std::filesystem::path, double>> sorted_compilation_times(
+	    compilation_times);
+	std::sort(sorted_compilation_times.begin(), sorted_compilation_times.end(),
+		  [](const auto& a, const auto& b) { return a.second > b.second; });
+
+	// Sort link_times in descending order based on the link times
+	std::vector<std::pair<std::filesystem::path, double>> sorted_link_times(link_times);
+	std::sort(sorted_link_times.begin(), sorted_link_times.end(),
+		  [](const auto& a, const auto& b) { return a.second > b.second; });
+
+	// Calculate the maximum width of the path column
+	size_t max_path_width = 0;
+	for (const auto& entry : sorted_compilation_times) {
+		max_path_width = std::max(max_path_width, entry.first.string().size());
+	}
+	for (const auto& entry : sorted_link_times) {
+		max_path_width = std::max(max_path_width, entry.first.string().size());
+	}
+
+	// Create a stringstream to build the formatted table
+	std::stringstream ss;
+
+	// Table header
+	ss << std::left << std::setw(max_path_width) << "File"
+	   << "  Compilation Time (s)\n";
+	ss << std::setfill('=') << std::setw(max_path_width + 23) << ""
+	   << "\n";
+	ss << std::setfill(' ');
+
+	// Compilation times table
+	for (const auto& entry : sorted_compilation_times) {
+		ss << std::left << std::setw(max_path_width) << entry.first.string() << "  "
+		   << std::right << std::setw(15) << std::fixed << std::setprecision(6)
+		   << entry.second << "\n";
+	}
+
+	// Empty line between tables
+	ss << "\n";
+
+	// Table header for link times
+	ss << std::left << std::setw(max_path_width) << "File"
+	   << "  Link Time (s)\n";
+	ss << std::setfill('=') << std::setw(max_path_width + 16) << ""
+	   << "\n";
+	ss << std::setfill(' ');
+
+	// Link times table
+	for (const auto& entry : sorted_link_times) {
+		ss << std::left << std::setw(max_path_width) << entry.first.string() << "  "
+		   << std::right << std::setw(15) << std::fixed << std::setprecision(6)
+		   << entry.second << "\n";
+	}
+
+	// Summary statistics
+	ss << "\n";
+	ss << "Total Time: " << total_time_s << "s\n";
+	ss << "Package Resolution Time: " << package_resolution_time_s << "s\n";
+	ss << "Compilation Time: " << compilation_time_s << "s\n";
+	ss << "Link Time: " << link_time_s << "s\n";
+
+	return ss.str();
 }
 
 CompileCommand CompileCommand::make(std::filesystem::path const& source_file,
