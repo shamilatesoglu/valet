@@ -9,7 +9,7 @@ An attempt on a simple, fast and easy to use C++ build system, inspired by Rust'
 - [ ] Prebuilt library dependencies (both static and dynamic)
 - [ ] Test targets
 - [ ] Benchmark targets
-- [ ] Compilation stats (time, memory, etc.)
+- [x] Compilation stats
 - [ ] Compilation cache
 - [x] Git repository support (partially done)
 - [ ] Package manager & registry

@@ -12,3 +12,4 @@ DerivePointerAlignment: False
 AlwaysBreakTemplateDeclarations: Yes
 PointerAlignment: Left
 ColumnLimit: 100
+AllowShortEnumsOnASingleLine: false

@@ -355,6 +355,7 @@ bool BuildPlan::execute()
 std::string BuildStats::to_string() const
 {
 	std::stringstream ss;
+	ss << "\n";
 
 	// Compilation times table
 	ss << std::setw(40) << std::left << "Source File" << std::setw(30) << std::right

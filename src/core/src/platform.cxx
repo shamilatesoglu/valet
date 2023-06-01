@@ -38,11 +38,6 @@ void sanitize_path(std::string& path)
 #endif
 }
 
-bool clangpp_test()
-{
-	return true;
-}
-
 void escape_cli_command(std::string& command)
 {
 #if defined(_WIN32)
