@@ -119,7 +119,7 @@ bool run(RunParams& params)
 void collect_source_files(std::filesystem::path const& folder,
 			  std::vector<std::filesystem::path>& out)
 {
-	static const std::unordered_set<std::string> source_file_extensions = {".cxx", ".cpp",
+	static const std::unordered_set<std::string> source_file_extensions = {".cxx", ".cpp", ".cc",
 									       ".c++", ".c"};
 	for (auto const& entry : std::filesystem::directory_iterator(folder)) {
 		if (entry.is_directory()) {
