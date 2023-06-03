@@ -59,7 +59,6 @@ make_package_graph(std::filesystem::path const& project_folder)
 	DependencyGraph<Package> package_graph;
 	package_graph.add(*package);
 
-	// TODO: For remote dependencies, we need to download them before resolving.
 	std::stack<std::pair<Package, DependencyInfo>> to_be_resolved;
 	for (auto const& dep_info : package->dependencies)
 		to_be_resolved.push({*package, dep_info});
@@ -84,8 +83,10 @@ make_package_graph(std::filesystem::path const& project_folder)
 		package_graph.add(*resolved);
 		package_graph.depend(cur_package, *resolved);
 		resolved_packages[cur_dep_info.folder] = *resolved;
-		for (auto const& dep_info : resolved->dependencies)
-			to_be_resolved.push({*resolved, dep_info});
+		for (auto const& dep_info : resolved->dependencies) {
+			if (resolved_packages.find(dep_info.folder) == resolved_packages.end())
+				to_be_resolved.push({*resolved, dep_info});
+		}
 	}
 
 	return package_graph;
@@ -189,8 +190,9 @@ std::optional<Package> Package::parse_from(std::filesystem::path const& manifest
 					spdlog::debug("Git dependency {}: Using tag {}", git.name,
 						      git.rev);
 				} else {
-					spdlog::error("Git dependency {}: No revision or tag specified",
-						      git.name);
+					spdlog::error(
+					    "Git dependency {}: No revision or tag specified",
+					    git.name);
 					return std::nullopt;
 				}
 				std::filesystem::path out_folder;

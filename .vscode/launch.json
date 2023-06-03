@@ -23,6 +23,14 @@
 		{
 			"type": "lldb",
 			"request": "launch",
+			"name": "Debug (CMake) (test: primes - clean)",
+			"program": "${workspaceFolder}/ninja_build/valet",
+			"args": ["build", "-s", "./test/test_projects/primes", "--clean"],
+			"cwd": "${workspaceFolder}"
+		}, 
+		{
+			"type": "lldb",
+			"request": "launch",
 			"name": "Debug (CMake) (test: primes_remote_deps)",
 			"program": "${workspaceFolder}/ninja_build/valet",
 			"args": ["build", "-s", "./test/test_projects/primes_remote_dep"],

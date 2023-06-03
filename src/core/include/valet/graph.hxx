@@ -72,19 +72,23 @@ public:
 
 	std::optional<std::vector<T>> sorted() const
 	{
+		// TODO: Implement a better way to check for cycles
 		class TopologicalSorter
 		{
 		public:
 			TopologicalSorter(DependencyGraph<T> const& graph)
-			    : graph(graph), visited(graph.size())
+			    : graph(graph), visited(graph.size()), on_stack(graph.size())
 			{
 			}
+
+			// Returns false if a cycle is detected
 			bool sort()
 			{
-				// TODO: Return false on cycle!
 				for (auto const& [node, _] : graph) {
-					if (!dfs(node)) {
-						return false;
+					if (!visited.contains(node)) {
+						if (!dfs(node)) {
+							return false;
+						}
 					}
 				}
 				return true;
@@ -95,21 +99,30 @@ public:
 		private:
 			bool dfs(T const& cur)
 			{
-				if (visited.contains(cur))
-					return true;
 				visited.insert(cur);
+				on_stack.insert(cur);
+
 				for (auto const& dep : graph.immediate_deps(cur)) {
-					if (!dfs(dep)) {
+					if (on_stack.contains(dep)) {
+						// Cycle detected
+						spdlog::error("Cycle detected in dependency graph! {} -> {}", cur.id, dep.id);
 						return false;
 					}
+					if (!visited.contains(dep)) {
+						if (!dfs(dep)) {
+							return false;
+						}
+					}
 				}
+
 				sorted.push_back(cur);
-				spdlog::trace("Visited: {}", cur.id);
+				on_stack.erase(cur);
 				return true;
 			}
 
 			DependencyGraph<T> const& graph;
 			std::unordered_set<T> visited;
+			std::unordered_set<T> on_stack;
 		};
 
 		TopologicalSorter sorter(*this);

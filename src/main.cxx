@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
 	}
 
 	spdlog::set_level(program.get<bool>("verbose")
-			      ? spdlog::level::debug
+			      ? spdlog::level::trace
 			      : spdlog::level::info); // TODO: Make this configurable
 	spdlog::set_pattern("%^[%=8l] %v%$");
 
