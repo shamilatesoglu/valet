@@ -10,6 +10,7 @@
 
 // stl
 #include <cstdlib>
+#include <sstream>
 
 namespace valet
 {
