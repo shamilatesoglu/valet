@@ -59,19 +59,19 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 	}
 	cmd += " " + clone_folder.generic_string();
 	spdlog::info("Cloning {} to {}", info.remote_url, clone_folder.generic_string());
-	if (execute({cmd})) {
+	if (execute(cmd)) {
 		spdlog::error("Failed to clone {} to {}", info.remote_url,
 			      clone_folder.generic_string());
 		return false;
 	}
-	if (execute({"git fetch"}, clone_folder)) {
+	if (execute("git fetch", clone_folder)) {
 		spdlog::error("Failed to fetch {} in {}", info.remote_url,
 			      clone_folder.generic_string());
 		return false;
 	}
 	cmd = "git checkout " + info.rev;
 	spdlog::debug("Checking out {} in {}", info.rev, clone_folder.generic_string());
-	if (execute({cmd}, clone_folder)) {
+	if (execute(cmd, clone_folder)) {
 		spdlog::error("Failed to checkout {} in {}", info.rev,
 				clone_folder.generic_string());
 		return false;

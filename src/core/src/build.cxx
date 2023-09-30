@@ -8,6 +8,9 @@
 #include "platform.hxx"
 #include "valet/thread_utils.hxx"
 
+// external
+#include <tsl/ordered_set.h>
+
 // stl
 #include <unordered_set>
 #include <sstream>
@@ -266,16 +269,14 @@ std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package
 			return std::nullopt;
 		}
 		collect_source_files(source_folder, source_files);
-		std::vector<CompileCommand> compile_commands;
+		std::vector<CompileCommand> package_cc;
 		auto package_build_folder = build_folder / package.id;
 		for (auto const& source_file : source_files) {
-			auto cc = CompileCommand::make(
-			    source_file, package,
-			    /* Should 'public_includes' have transitive relation? */
-			    package_graph.all_deps(package), opts, package_build_folder);
-			compile_commands.push_back(cc);
+			CompileCommand cc(package, source_file, package_graph.all_deps(package), opts, package_build_folder);
+			package_cc.push_back(cc);
 		}
-		plan.group(package, compile_commands, build_folder);
+		plan.group(package, package_cc, build_folder);
+		spdlog::debug("Package {} has {} source files", package.id, source_files.size());
 	}
 	return plan;
 }
@@ -292,7 +293,7 @@ void BuildPlan::group(Package const& package, std::vector<CompileCommand> const&
 		obj_files.push_back(cc.obj_file);
 	}
 	auto lc =
-	    LinkCommand::make(obj_files, package, package_graph.all_deps(package), build_folder);
+	    LinkCommand(package, obj_files, package_graph.all_deps(package), build_folder);
 	link_commands.push_back(lc);
 }
 
@@ -307,7 +308,7 @@ bool BuildPlan::execute()
 			auto output_folder = cmd.obj_file.parent_path();
 			if (!std::filesystem::exists(output_folder))
 				std::filesystem::create_directories(output_folder);
-			spdlog::info("Compiling ({}/{}) {}", i, cc.size(),
+			spdlog::info("Compiling ({}/{}) {}", i + 1, cc.size(),
 				     cmd.source_file.generic_string());
 			util::Stopwatch csw;
 			auto ret = ::valet::execute(cmd);
@@ -329,7 +330,7 @@ bool BuildPlan::execute()
 		auto output_folder = cmd.binary_path.parent_path();
 		if (!std::filesystem::exists(output_folder))
 			std::filesystem::create_directories(output_folder);
-		spdlog::info("Linking ({}/{}) {}", i, link_commands.size(),
+		spdlog::info("Linking ({}/{}) {}", i + 1, link_commands.size(),
 			     cmd.binary_path.generic_string());
 		util::Stopwatch lsw;
 		auto ret = ::valet::execute(cmd);
@@ -342,7 +343,6 @@ bool BuildPlan::execute()
 		}
 		success.store(ret == 0 && success.load());
 	}
-	thread_pool->wait();
 	double link_time = sw.elapsed() - compile_time;
 	spdlog::debug("Compilation took {}", util::Stopwatch::elapsed_str(compile_time));
 	spdlog::debug("Linking took {}", util::Stopwatch::elapsed_str(link_time));
@@ -352,6 +352,7 @@ bool BuildPlan::execute()
 	}
 	return success;
 }
+
 std::string BuildStats::to_string() const
 {
 	std::stringstream ss;
@@ -412,120 +413,13 @@ std::string BuildStats::to_string() const
 	return ss.str();
 }
 
-CompileCommand CompileCommand::make(std::filesystem::path const& source_file,
-				    Package const& package,
-				    std::vector<Package> const& dependencies,
-				    CompileOptions const& opts,
-				    std::filesystem::path const& output_folder)
-{
-	std::filesystem::path obj_file = output_folder / (source_file.filename().string() + ".o");
-	std::stringstream cmd;
-	cmd << "clang++" // TODO: CompilationSettings
-	    << " -Wall"	 // TODO: CompilationOptions
-	    << " -MD"
-	    << " -c " << source_file.generic_string()
-	    << " -std=" << package.std // TODO: ABI compatibility warnings
-	    << " -o " << obj_file.generic_string();
-	if (package.type == Package::Type::SharedLibrary) {
-#ifdef _WIN32
-		auto upper = util::to_upper(package.name);
-		cmd << " -D" << upper << "_SHARED"
-		    << " -D" << upper << "_EXPORTS"; // Whaat? Really?
-#endif
-	}
-	if (opts.release)
-		cmd << " -O3";
-	else {
-		cmd << " -g -O0";
-#ifdef _WIN32
-		cmd << " -gcodeview";
-#endif
-	}
-	for (auto const& opt : package.compile_options) {
-		cmd << " " << opt;
-	}
-	for (auto const& incl : package.includes) {
-		cmd << " -I" << incl.generic_string();
-	}
-	for (auto const& dep : dependencies) {
-		for (auto const& public_incl : dep.public_includes) {
-			spdlog::trace("Adding public include {} of the dependency {} to package {}",
-				      public_incl.generic_string(), dep.id, package.id);
-			cmd << " -I" << public_incl;
-		}
-	}
-	CompileCommand command;
-	command.obj_file = obj_file;
-	command.source_file = source_file;
-	command.cmd = cmd.str();
-	return command;
-}
-
-LinkCommand LinkCommand::make(std::vector<std::filesystem::path> const& obj_files,
-			      Package const& package, std::vector<Package> const& dependencies,
-			      std::filesystem::path const& build_folder)
-{
-	auto output_file_path = build_folder / package.id / package.name;
-	auto output_file_path_str = output_file_path.generic_string();
-	std::stringstream cmd;
-	switch (package.type) {
-	case Package::Type::Application:
-	case Package::Type::SharedLibrary: {
-		cmd << "clang++"; // TODO: CompilationSettings
-		if (package.type == Package::Type::SharedLibrary)
-			cmd << " -shared";
-		for (auto const& o : obj_files) {
-			cmd << " " << o;
-		}
-		std::vector<std::pair<std::filesystem::path, std::filesystem::path>>
-		    copy_dylib_deps;
-		for (auto const& dep : dependencies) {
-			auto dep_bin_path_no_ext = build_folder / dep.id / dep.name;
-			auto dep_bin_path_str = dep_bin_path_no_ext.generic_string();
-			if (dep.type == Package::Type::SharedLibrary) {
-				spdlog::error("Sorry, but valet does not support linking against a "
-					      "shared library yet. Offending package: {}",
-					      dep.id);
-				exit(1);
-			}
-			dep_bin_path_str += dep.target_ext();
-			cmd << " " << dep_bin_path_str;
-		}
-		cmd << " -o " << output_file_path_str + package.target_ext();
-		if (package.type == Package::Type::SharedLibrary) {
-#if defined(_WIN32)
-#elif defined(__APPLE__)
-			cmd << " -Wl,-undefined,dynamic_lookup";
-#elif defined(__linux__)
-			auto soname = output_file_path.filename().generic_string();
-			cmd << " -Wl,-soname," << soname;
-#endif
-		}
-		break;
-	}
-	case Package::Type::StaticLibrary: {
-		cmd << platform::static_link_command_prefix(output_file_path_str +
-							    package.target_ext());
-		for (auto const& o : obj_files) {
-			cmd << " " << o.generic_string();
-		}
-		break;
-	}
-	}
-	LinkCommand command;
-	command.cmd = cmd.str();
-	command.obj_files = obj_files;
-	command.binary_path = output_file_path;
-	return command;
-}
-
 bool BuildPlan::export_compile_commands(std::filesystem::path const& out) const
 {
 	std::stringstream ss;
 	ss << "[\n";
 	for (size_t i = 0; i < compile_commands.size(); ++i) {
 		auto const& cc = compile_commands[i];
-		std::string esc = std::regex_replace(cc.cmd, std::regex("\""), "\\\"");
+		std::string esc = std::regex_replace(cc.string(), std::regex("\""), "\\\"");
 		// clang-format off
 		ss << "{"
 		   << "\n\t\"directory\": \"" << cc.source_file.parent_path().generic_string() << "\","
@@ -591,18 +485,33 @@ void BuildPlan::optimize()
 		}
 	}
 	// Now, optimize link commands
+	// TODO: If a static library is not need to be compiled, 
+	//       do not link it even if it is a dependency to a static library that needs to be compiled
+	tsl::ordered_set<Package> packages_to_be_compiled;
+	for (auto const& cc : compile_commands) {
+		packages_to_be_compiled.insert(cc.package);
+	}
+	tsl::ordered_set<Package> to_be_linked;
+	for (auto const& package : packages_to_be_compiled) {
+		to_be_linked.insert(package);
+		auto dependants = package_graph.all_dependants(package);
+		spdlog::trace("Package {} is a dependency to {} packages", package.id, dependants.size());
+		for (auto const& dep : dependants) {
+			to_be_linked.insert(dep);
+		}
+	}
+	spdlog::trace("Will link {} packages", to_be_linked.size());
 	for (auto it = link_commands.begin(); it != link_commands.end();) {
 		auto const& cmd = *it;
 		bool should_link = false;
-		for (auto const& obj : cmd.obj_files) {
-			if (std::find_if(compile_commands.begin(), compile_commands.end(),
-					 [&obj](CompileCommand const& cc) {
-						 return cc.obj_file == obj;
-					 }) != compile_commands.end()) {
+
+		for (auto const& dep : to_be_linked) {
+			if (dep == cmd.package) {
 				should_link = true;
 				break;
 			}
 		}
+
 		if (!should_link) {
 			spdlog::trace("Skipped linking {}", cmd.binary_path.generic_string());
 			it = link_commands.erase(it);

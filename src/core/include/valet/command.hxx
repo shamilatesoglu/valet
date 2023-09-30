@@ -18,27 +18,35 @@ struct CompileOptions {
 };
 
 struct Command {
-	std::string cmd;
+	virtual std::string string() const = 0;
+	operator std::string() const { return string(); }
 };
 
 struct CompileCommand : Command {
+	Package package;
 	std::filesystem::path source_file;
 	std::filesystem::path obj_file;
-	static CompileCommand make(std::filesystem::path const& source_file, Package const& package,
-				   std::vector<Package> const& dependencies,
-				   CompileOptions const& opts,
-				   std::filesystem::path const& output_folder);
+	std::vector<Package> dependencies;
+	CompileOptions opts;
+	std::filesystem::path output_folder;
+	std::string string() const override;
+	CompileCommand(Package const& package, std::filesystem::path const& source_file,
+		       std::vector<Package> const& dependencies, CompileOptions const& opts,
+		       std::filesystem::path const& output_folder);
 };
 
 struct LinkCommand : Command {
+	Package package;
 	std::vector<std::filesystem::path> obj_files;
+	std::vector<Package> dependencies;
 	std::filesystem::path binary_path;
-	static LinkCommand make(std::vector<std::filesystem::path> const& obj_files,
-				Package const& package, std::vector<Package> const& dependencies,
-				std::filesystem::path const& output_folder);
+	std::string string() const override;
+	LinkCommand(Package const& package, std::vector<std::filesystem::path> const& obj_files,
+		    std::vector<Package> const& dependencies,
+		    std::filesystem::path const& output_folder);
 };
 
-int execute(Command const& command,
+int execute(std::string const& command,
 	    std::optional<std::filesystem::path> const& working_dir = std::nullopt);
 
 } // namespace valet

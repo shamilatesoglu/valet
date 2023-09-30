@@ -18,7 +18,7 @@ namespace valet
 struct Identifiable {
 	std::string id;
 	bool operator==(Identifiable const& rhs) const { return id == rhs.id; }
-	std::string operator()() const { return id; }
+	operator std::string() const { return id; }
 };
 
 } // namespace valet
@@ -37,10 +37,7 @@ struct hash<valet::Identifiable> {
 namespace valet
 {
 
-template <class T, class U>
-concept Derived = std::is_base_of<U, T>::value;
-
-template <Derived<Identifiable> T>
+template <typename T>
 class DependencyGraph
 {
 public:
@@ -48,7 +45,7 @@ public:
 	{
 		if (depgraph.contains(node))
 			return false;
-		spdlog::trace("DependencyGraph: Adding node {}", node.id);
+		spdlog::trace("DependencyGraph: Adding node {}", std::string(node));
 		depgraph[node] = {};
 		return true;
 	}
@@ -57,7 +54,7 @@ public:
 	{
 		auto it = depgraph.find(dependant);
 		if (it == depgraph.end()) {
-			spdlog::error("Cannot find {} in dependency graph", dependant.id);
+			spdlog::error("Cannot find {} in dependency graph", std::string(dependant));
 			return false;
 		}
 		it->second.insert(dependence);
@@ -105,7 +102,9 @@ public:
 				for (auto const& dep : graph.immediate_deps(cur)) {
 					if (on_stack.contains(dep)) {
 						// Cycle detected
-						spdlog::error("Cycle detected in dependency graph! {} -> {}", cur.id, dep.id);
+						spdlog::error(
+						    "Cycle detected in dependency graph! {} -> {}",
+						    std::string(cur), std::string(dep));
 						return false;
 					}
 					if (!visited.contains(dep)) {
@@ -136,7 +135,7 @@ public:
 	{
 		auto const& it = depgraph.find(node);
 		if (it == depgraph.end()) {
-			spdlog::error("Node {} not found in dependency graph!", node.id);
+			spdlog::error("Node {} not found in dependency graph!", std::string(node));
 			std::exit(1);
 		}
 		return it->second;
@@ -160,11 +159,40 @@ public:
 		return all_deps;
 	}
 
+	std::unordered_set<T> immediate_dependants(T const& dependence) const
+	{
+		std::unordered_set<T> dependants;
+		for (auto const& [pkg, deps] : depgraph)
+			for (auto const& dep : deps)
+				if (dep == dependence)
+					dependants.insert(pkg);
+		return dependants;
+	}
+
+	std::unordered_set<T> all_dependants(T const& dependence) const
+	{
+		// Find the dependants of this dependence
+		std::stack<T> stack;
+		std::unordered_set<T> dependants;
+		for (auto const& dep : immediate_dependants(dependence)) {
+			stack.push(dep);
+		}
+		while (!stack.empty()) {
+			auto cur = stack.top();
+			stack.pop();
+			dependants.insert(cur);
+			for (auto const& dep : immediate_dependants(cur)) {
+				stack.push(dep);
+			}
+		}
+		return dependants;
+	}
+
 	bool empty() const { return depgraph.empty(); }
 
 	T const* get_node_by_id(Identifiable const& identifiable) const
 	{
-		spdlog::trace("Searching for {}", identifiable.id);
+		spdlog::trace("Searching for {}", std::string(identifiable));
 		auto it = depgraph.find(static_cast<T const&>(identifiable));
 		if (it != depgraph.end()) {
 			return &it->first;
