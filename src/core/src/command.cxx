@@ -107,7 +107,7 @@ std::string LinkCommand::string() const
 #elif defined(__APPLE__)
 			cmd << " -Wl,-undefined,dynamic_lookup";
 #elif defined(__linux__)
-			auto soname = output_file_path.filename().generic_string();
+			auto soname = binary_path.filename().generic_string();
 			cmd << " -Wl,-soname," << soname;
 #endif
 		}
