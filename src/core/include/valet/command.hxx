@@ -33,6 +33,7 @@ struct CompileCommand : Command {
 	CompileCommand(Package const& package, std::filesystem::path const& source_file,
 		       std::vector<Package> const& dependencies, CompileOptions const& opts,
 		       std::filesystem::path const& output_folder);
+	virtual ~CompileCommand() = default;
 };
 
 struct LinkCommand : Command {
@@ -44,6 +45,7 @@ struct LinkCommand : Command {
 	LinkCommand(Package const& package, std::vector<std::filesystem::path> const& obj_files,
 		    std::vector<Package> const& dependencies,
 		    std::filesystem::path const& output_folder);
+	virtual ~LinkCommand() = default;
 };
 
 int execute(std::string const& command,
