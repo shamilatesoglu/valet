@@ -14,7 +14,7 @@
 #include <stack>
 #include <unordered_set>
 
-#if not _WIN32
+#if __APPLE__
 namespace std
 {
 template <>
