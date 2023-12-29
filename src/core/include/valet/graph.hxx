@@ -141,16 +141,16 @@ public:
 		return it->second;
 	}
 
-	std::vector<T> all_deps(T const& node) const
+    std::unordered_set<T> all_deps(T const& node) const
 	{
-		std::vector<T> all_deps;
+		std::unordered_set<T> all_deps;
 		std::stack<T> stack;
 		for (auto const& dep : immediate_deps(node)) {
 			stack.push(dep);
 		}
 		while (!stack.empty()) {
 			auto cur = stack.top();
-			all_deps.push_back(cur);
+			all_deps.emplace(cur);
 			stack.pop();
 			for (auto const& dep : immediate_deps(cur)) {
 				stack.push(dep);

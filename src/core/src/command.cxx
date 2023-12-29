@@ -16,7 +16,7 @@ namespace valet
 {
 
 CompileCommand::CompileCommand(Package const& package, std::filesystem::path const& source_file,
-			       std::vector<Package> const& dependencies, CompileOptions const& opts,
+			       std::unordered_set<Package> const& dependencies, CompileOptions const& opts,
 			       std::filesystem::path const& output_folder)
     : package(package), source_file(source_file),
       obj_file(output_folder / (source_file.filename().string() + ".o")),
@@ -66,7 +66,7 @@ std::string CompileCommand::string() const
 
 LinkCommand::LinkCommand(Package const& package,
 			 std::vector<std::filesystem::path> const& obj_files,
-			 std::vector<Package> const& dependencies,
+			 std::unordered_set<Package> const& dependencies,
 			 std::filesystem::path const& output_folder)
     : package(package), obj_files(obj_files), dependencies(dependencies),
       binary_path(output_folder / package.id / package.name)

@@ -26,12 +26,12 @@ struct CompileCommand : Command {
 	Package package;
 	std::filesystem::path source_file;
 	std::filesystem::path obj_file;
-	std::vector<Package> dependencies;
+	std::unordered_set<Package> dependencies;
 	CompileOptions opts;
 	std::filesystem::path output_folder;
 	std::string string() const override;
 	CompileCommand(Package const& package, std::filesystem::path const& source_file,
-		       std::vector<Package> const& dependencies, CompileOptions const& opts,
+		       std::unordered_set<Package> const& dependencies, CompileOptions const& opts,
 		       std::filesystem::path const& output_folder);
 	virtual ~CompileCommand() = default;
 };
@@ -39,11 +39,11 @@ struct CompileCommand : Command {
 struct LinkCommand : Command {
 	Package package;
 	std::vector<std::filesystem::path> obj_files;
-	std::vector<Package> dependencies;
+	std::unordered_set<Package> dependencies;
 	std::filesystem::path binary_path;
 	std::string string() const override;
 	LinkCommand(Package const& package, std::vector<std::filesystem::path> const& obj_files,
-		    std::vector<Package> const& dependencies,
+		    std::unordered_set<Package> const& dependencies,
 		    std::filesystem::path const& output_folder);
 	virtual ~LinkCommand() = default;
 };
