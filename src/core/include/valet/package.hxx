@@ -26,7 +26,7 @@ struct Package : Identifiable {
 	std::string name;
 	std::string version;
 	std::string std;
-	enum class Type { Application, StaticLibrary, SharedLibrary };
+	enum class Type { Application, StaticLibrary, SharedLibrary, HeaderOnly };
 	Type type;
 	std::vector<std::filesystem::path> public_includes;
 	std::vector<std::filesystem::path> includes;

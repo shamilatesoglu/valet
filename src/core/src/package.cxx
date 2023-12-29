@@ -124,7 +124,9 @@ std::optional<Package> Package::parse_from(std::filesystem::path const& manifest
 	auto package_type_str = package_toml["type"].value_or<std::string>("");
 	auto package_type = get_package_type(package_type_str);
 	if (!package_type) {
-		spdlog::error("Invalid package type: {}", package_type_str);
+		spdlog::error("Package {} has an invalid package type: {}. Must be one of: "
+			      "'bin', 'lib', 'dylib' or 'header_only'.",
+			      package.name, package_type_str);
 		return std::nullopt;
 	}
 	package.type = *package_type;
@@ -135,7 +137,7 @@ std::optional<Package> Package::parse_from(std::filesystem::path const& manifest
 			std::filesystem::path path =
 			    package_folder / *path_node.value<std::string>();
 			if (!std::filesystem::exists(path)) {
-				spdlog::error("{} public_includes: No such folder {}", package.name,
+				spdlog::error("{} includes: No such folder {}", package.name,
 					      path.generic_string());
 				return std::nullopt;
 			}
@@ -146,8 +148,14 @@ std::optional<Package> Package::parse_from(std::filesystem::path const& manifest
 	auto const& public_includes_ref = package_toml["public_includes"];
 	if (auto path_arr = public_includes_ref.as_array()) {
 		for (auto&& path_node : *path_arr) {
-			std::filesystem::path path = *path_node.value<std::string>();
-			path = std::filesystem::canonical(package_folder / path);
+			std::filesystem::path path =
+			    package_folder / *path_node.value<std::string>();
+			if (!std::filesystem::exists(path)) {
+				spdlog::error("{} public_includes: No such folder {}", package.name,
+					      path.generic_string());
+				return std::nullopt;
+			}
+			path = std::filesystem::canonical(path);
 			package.public_includes.push_back(path);
 		}
 	}
@@ -221,14 +229,16 @@ std::optional<Package> Package::parse_from(std::filesystem::path const& manifest
 
 std::optional<Package::Type> get_package_type(const std::string& type)
 {
-	if (type == "bin")
-		return Package::Type::Application;
-	else if (type == "lib")
-		return Package::Type::StaticLibrary;
-	else if (type == "dylib")
-		return Package::Type::SharedLibrary;
-	else
+	static std::unordered_map<std::string, Package::Type> type_map = {
+	    {"bin", Package::Type::Application},
+	    {"lib", Package::Type::StaticLibrary},
+	    {"dylib", Package::Type::SharedLibrary},
+	    {"header_only", Package::Type::HeaderOnly},
+	};
+	auto it = type_map.find(type);
+	if (it == type_map.end())
 		return std::nullopt;
+	return it->second;
 }
 
 } // namespace valet

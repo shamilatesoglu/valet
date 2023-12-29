@@ -1,0 +1,6 @@
+[package]
+name = "is_even"
+version = "0.1.0"
+std = "c++20"
+public_includes = ["./include/"]
+type = "header_only"

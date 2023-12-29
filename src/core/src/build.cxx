@@ -122,8 +122,8 @@ bool run(RunParams& params)
 void collect_source_files(std::filesystem::path const& folder,
 			  std::vector<std::filesystem::path>& out)
 {
-	static const std::unordered_set<std::string> source_file_extensions = {".cxx", ".cpp", ".cc",
-									       ".c++", ".c"};
+	static const std::unordered_set<std::string> source_file_extensions = {".cxx", ".cpp",
+									       ".cc", ".c++", ".c"};
 	for (auto const& entry : std::filesystem::directory_iterator(folder)) {
 		if (entry.is_directory()) {
 			if (auto nested = find_package(entry.path()))
@@ -139,7 +139,10 @@ void collect_source_files(std::filesystem::path const& folder,
 }
 
 struct DepFileEntry : Identifiable {
-	enum Type { ObjectFile, Dependency };
+	enum Type {
+		ObjectFile,
+		Dependency
+	};
 	DepFileEntry(std::filesystem::path const& path, Type type) : type(type)
 	{
 		id = std::filesystem::weakly_canonical(path).generic_string();
@@ -260,6 +263,8 @@ std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package
 	plan.thread_pool = std::make_shared<util::ThreadPool>(nth);
 	plan.package_graph = package_graph;
 	for (auto const& package : sorted) {
+		if (package.type == Package::Type::HeaderOnly)
+			continue;
 		std::vector<std::filesystem::path> source_files;
 		std::filesystem::path source_folder = package.folder / "src";
 		if (!std::filesystem::exists(source_folder)) {
@@ -272,7 +277,8 @@ std::optional<BuildPlan> BuildPlan::make(DependencyGraph<Package> const& package
 		std::vector<CompileCommand> package_cc;
 		auto package_build_folder = build_folder / package.id;
 		for (auto const& source_file : source_files) {
-			CompileCommand cc(package, source_file, package_graph.all_deps(package), opts, package_build_folder);
+			CompileCommand cc(package, source_file, package_graph.all_deps(package),
+					  opts, package_build_folder);
 			package_cc.push_back(cc);
 		}
 		plan.group(package, package_cc, build_folder);
@@ -292,8 +298,7 @@ void BuildPlan::group(Package const& package, std::vector<CompileCommand> const&
 	for (auto const& cc : package_cc) {
 		obj_files.push_back(cc.obj_file);
 	}
-	auto lc =
-	    LinkCommand(package, obj_files, package_graph.all_deps(package), build_folder);
+	auto lc = LinkCommand(package, obj_files, package_graph.all_deps(package), build_folder);
 	link_commands.push_back(lc);
 }
 
@@ -485,8 +490,9 @@ void BuildPlan::optimize()
 		}
 	}
 	// Now, optimize link commands
-	// TODO: If a static library is not need to be compiled, 
-	//       do not link it even if it is a dependency to a static library that needs to be compiled
+	// TODO: If a static library is not need to be compiled,
+	//       do not link it even if it is a dependency to a static library that needs to be
+	//       compiled
 	tsl::ordered_set<Package> packages_to_be_compiled;
 	for (auto const& cc : compile_commands) {
 		packages_to_be_compiled.insert(cc.package);
@@ -495,7 +501,8 @@ void BuildPlan::optimize()
 	for (auto const& package : packages_to_be_compiled) {
 		to_be_linked.insert(package);
 		auto dependants = package_graph.all_dependants(package);
-		spdlog::trace("Package {} is a dependency to {} packages", package.id, dependants.size());
+		spdlog::trace("Package {} is a dependency to {} packages", package.id,
+			      dependants.size());
 		for (auto const& dep : dependants) {
 			to_be_linked.insert(dep);
 		}

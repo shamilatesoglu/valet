@@ -89,6 +89,8 @@ std::string LinkCommand::string() const
 		std::vector<std::pair<std::filesystem::path, std::filesystem::path>>
 		    copy_dylib_deps;
 		for (auto const& dep : dependencies) {
+			if (dep.type == Package::Type::HeaderOnly)
+				continue;
 			auto dep_bin_path_no_ext =
 			    binary_path.parent_path().parent_path() / dep.id / dep.name;
 			auto dep_bin_path_str = dep_bin_path_no_ext.generic_string();
@@ -120,6 +122,9 @@ std::string LinkCommand::string() const
 		for (auto const& o : obj_files) {
 			cmd << " " << o.generic_string();
 		}
+		break;
+	}
+	case Package::Type::HeaderOnly: {
 		break;
 	}
 	}
