@@ -102,6 +102,7 @@ int main(int argc, char* argv[])
 	    .help("Build in release mode with optimizations");
 	run.add_argument("--clean").default_value(false).implicit_value(true).help(
 	    "Clean build folder");
+	run.add_argument("args").nargs(argparse::nargs_pattern::any).remaining().help("Arguments");
 	program.add_subparser(run);
 
 	argparse::ArgumentParser install("install", VALET_VERSION);
@@ -187,11 +188,20 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 		auto project_folder = *project_folder_opt;
-		valet::RunParams params;
+		valet::RunParams params{};
 		params.build.compile_options.release = release;
 		params.build.clean = clean;
 		params.build.project_folder = *project_folder_opt;
 		params.targets = run.get<std::vector<std::string>>("target");
+		if (run.is_used("args")) {
+			auto args_vector = run.get<std::vector<std::string>>("args");
+			std::stringstream args;
+			for (auto const& arg : args_vector) {
+				args << " " << arg;
+			}
+			params.arguments = args.str();
+			spdlog::debug("Passing arguments: {}", params.arguments.value());
+		}
 
 		if (!valet::run(params)) {
 			spdlog::error("Run failed");

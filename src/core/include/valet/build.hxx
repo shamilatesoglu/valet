@@ -27,6 +27,7 @@ struct BuildParams {
 struct RunParams {
 	BuildParams build;
 	std::vector<std::string> targets; // If emtpy, run the root package if it is an executable.
+	std::optional<std::string> arguments;
 };
 
 struct BuildStats {

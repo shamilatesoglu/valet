@@ -72,7 +72,7 @@ bool build(BuildParams const& params, BuildPlan* out)
 	return success;
 }
 
-bool run_target_by_name(BuildPlan const& plan, std::string const& name, bool release)
+bool run_target_by_name(BuildPlan const& plan, std::string const& name, std::string const& args, bool release)
 {
 	auto* executable = plan.get_executable_target_by_name(name);
 	if (!executable) {
@@ -85,7 +85,7 @@ bool run_target_by_name(BuildPlan const& plan, std::string const& name, bool rel
 	spdlog::info("Running target {}", exe_path_str);
 	valet::platform::escape_cli_command(exe_path_str);
 	exe_path_str = "\"" + exe_path_str + "\"";
-	int ret = std::system(exe_path_str.c_str());
+	int ret = std::system((exe_path_str + " " + args).c_str());
 	if (ret) {
 		spdlog::error("Execution failed with return code {}", ret);
 		return false;
@@ -112,8 +112,10 @@ bool run(RunParams& params)
 		}
 		params.targets.emplace_back(root_package->name);
 	}
+	if (params.arguments && params.targets.size() > 1)
+		spdlog::warn("Multiple targets will be run with same arguments.");
 	for (auto const& target : params.targets) {
-		if (!run_target_by_name(build_plan, target, params.build.compile_options.release))
+		if (!run_target_by_name(build_plan, target, params.arguments.value_or(""), params.build.compile_options.release))
 			return false;
 	}
 	return true;
