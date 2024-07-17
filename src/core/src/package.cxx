@@ -14,19 +14,6 @@
 #include <stack>
 #include <unordered_set>
 
-#if __APPLE__
-namespace std
-{
-template <>
-struct hash<std::filesystem::path> {
-	size_t operator()(std::filesystem::path const& path) const
-	{
-		return std::hash<std::string>()(std::filesystem::canonical(path).generic_string());
-	}
-};
-} // namespace std
-#endif
-
 namespace valet
 {
 
