@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     name: "Build valet"
 
@@ -19,10 +19,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure CMake
-        run: cmake -S . -B ./cmake_build/
+        run: cmake -S . -B ./cmake_build/ -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build ./cmake_build/
+        run: cmake --build ./cmake_build/ --config Release
 
       - name: Bootstrap Test
         run: ./cmake_build/valet -v build
