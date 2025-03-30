@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     name: "Build valet"
 
@@ -24,7 +24,7 @@ jobs:
       - name: Build
         run: cmake --build ./cmake_build/
 
-      - name: Self-hosted Build
+      - name: Bootstrap Test
         run: ./cmake_build/valet -v build
 
       - name: Build Test Projects
