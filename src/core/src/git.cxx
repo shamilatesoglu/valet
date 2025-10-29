@@ -64,11 +64,26 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 			      clone_folder.generic_string());
 		return false;
 	}
-	if (execute("git fetch", clone_folder)) {
-		spdlog::error("Failed to fetch {} in {}", info.remote_url,
-			      clone_folder.generic_string());
-		return false;
+	
+	// Try to fetch the specific ref (works for branches/tags, may work for commits on some git servers)
+	cmd = "git fetch origin " + info.rev;
+	if (execute(cmd, clone_folder)) {
+		spdlog::debug("Failed to fetch {}, fetching all refs", info.rev);
+		// Unshallow first to convert to a full repo
+		if (execute("git fetch --unshallow", clone_folder)) {
+			spdlog::error("Failed to unshallow repository in {}", 
+				      clone_folder.generic_string());
+			return false;
+		}
+		// Now fetch all refs to ensure we have all commits from all branches
+		// This is necessary because unshallow only unshallows what was already fetched
+		if (execute("git fetch origin '+refs/heads/*:refs/remotes/origin/*'", clone_folder)) {
+			spdlog::error("Failed to fetch all branches in {}", 
+				      clone_folder.generic_string());
+			return false;
+		}
 	}
+	
 	cmd = "git checkout " + info.rev;
 	spdlog::debug("Checking out {} in {}", info.rev, clone_folder.generic_string());
 	if (execute(cmd, clone_folder)) {
