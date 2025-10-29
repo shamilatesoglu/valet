@@ -15,9 +15,11 @@ std::string git_info::get_sha1() const
 {
 	std::string content = remote_url + "\n";
 	// TODO: DO NOT use remote URL as part of the hash. It can change.
-	//       Use the package name inside the manifest instead.
+	//       Use the package name instead the manifest instead.
 	content += rev + "\n";
-	return SHA1()(content);
+	SHA1 hasher;
+	std::string result = hasher(content);
+	return result;
 }
 
 std::string get_git_repo_name_from_url(std::string const& url)
@@ -47,8 +49,9 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 	// 5. Return the folder path to the caller.
 
 	std::string cmd = "git clone";
-	cmd += " " + info.remote_url + " --recurse-submodules --depth=1 --shallow-submodules";
+	cmd += " " + info.remote_url + " --recursive --shallow-submodules";
 	std::string hash = info.get_sha1();
+	spdlog::trace("SHA1 hash: {}", hash);
 	std::filesystem::path clone_folder = platform::garage_dir() / hash;
 	if (!std::filesystem::exists(platform::garage_dir())) {
 		std::filesystem::create_directories(platform::garage_dir());
@@ -65,25 +68,7 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 		return false;
 	}
 	
-	// Try to fetch the specific ref (works for branches/tags, may work for commits on some git servers)
-	cmd = "git fetch origin " + info.rev;
-	if (execute(cmd, clone_folder)) {
-		spdlog::debug("Failed to fetch {}, fetching all refs", info.rev);
-		// Unshallow first to convert to a full repo
-		if (execute("git fetch --unshallow", clone_folder)) {
-			spdlog::error("Failed to unshallow repository in {}", 
-				      clone_folder.generic_string());
-			return false;
-		}
-		// Now fetch all refs to ensure we have all commits from all branches
-		// This is necessary because unshallow only unshallows what was already fetched
-		if (execute("git fetch origin '+refs/heads/*:refs/remotes/origin/*'", clone_folder)) {
-			spdlog::error("Failed to fetch all branches in {}", 
-				      clone_folder.generic_string());
-			return false;
-		}
-	}
-	
+	// Checkout the specific revision
 	cmd = "git checkout " + info.rev;
 	spdlog::debug("Checking out {} in {}", info.rev, clone_folder.generic_string());
 	if (execute(cmd, clone_folder)) {

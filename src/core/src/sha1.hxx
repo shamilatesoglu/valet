@@ -49,7 +49,7 @@ public:
 	std::string operator()(const std::string& text);
 
 	/// add arbitrary number of bytes
-	void add(const void* data, size_t num_bytes);
+	void add(const void* data, size_t num_bytes_to_add);
 
 	/// return latest hash as 40 hex characters
 	std::string get_hash();

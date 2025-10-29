@@ -175,13 +175,28 @@ std::optional<Package> Package::parse_from(std::filesystem::path const& manifest
 			} else if (dep_tbl->contains("git")) {
 				git_info git;
 				git.name = dep_info.name;
-				git.remote_url = dep_tbl->at("git").as_string()->get();
+				auto git_url = dep_tbl->at("git").as_string();
+				if (!git_url) {
+					spdlog::error("Git dependency {}: Invalid git URL", dep_info.name);
+					return std::nullopt;
+				}
+				git.remote_url = git_url->get();
 				if (dep_tbl->contains("rev")) {
-					git.rev = dep_tbl->at("rev").as_string()->get();
+					auto rev_val = dep_tbl->at("rev").as_string();
+					if (!rev_val) {
+						spdlog::error("Git dependency {}: Invalid rev value", git.name);
+						return std::nullopt;
+					}
+					git.rev = rev_val->get();
 					spdlog::debug("Git dependency {}: Using rev {}", git.name,
 						      git.rev);
 				} else if (dep_tbl->contains("tag")) {
-					git.rev = dep_tbl->at("tag").as_string()->get();
+					auto tag_val = dep_tbl->at("tag").as_string();
+					if (!tag_val) {
+						spdlog::error("Git dependency {}: Invalid tag value", git.name);
+						return std::nullopt;
+					}
+					git.rev = tag_val->get();
 					spdlog::debug("Git dependency {}: Using tag {}", git.name,
 						      git.rev);
 				} else {

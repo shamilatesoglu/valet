@@ -146,14 +146,14 @@ void SHA1::process_block(const void* data)
 }
 
 /// add arbitrary number of bytes
-void SHA1::add(const void* data, size_t num_bytes)
+void SHA1::add(const void* data, size_t num_bytes_to_add)
 {
 	const uint8_t* current = (const uint8_t*)data;
 
 	if (buffer_size > 0) {
-		while (num_bytes > 0 && buffer_size < BlockSize) {
+		while (num_bytes_to_add > 0 && buffer_size < BlockSize) {
 			buffer[buffer_size++] = *current++;
-			num_bytes--;
+			num_bytes_to_add--;
 		}
 	}
 
@@ -165,21 +165,21 @@ void SHA1::add(const void* data, size_t num_bytes)
 	}
 
 	// no more data ?
-	if (num_bytes == 0)
+	if (num_bytes_to_add == 0)
 		return;
 
 	// process full blocks
-	while (num_bytes >= BlockSize) {
+	while (num_bytes_to_add >= BlockSize) {
 		process_block(current);
 		current += BlockSize;
 		num_bytes += BlockSize;
-		num_bytes -= BlockSize;
+		num_bytes_to_add -= BlockSize;
 	}
 
 	// keep remaining bytes in buffer
-	while (num_bytes > 0) {
+	while (num_bytes_to_add > 0) {
 		buffer[buffer_size++] = *current++;
-		num_bytes--;
+		num_bytes_to_add--;
 	}
 }
 
