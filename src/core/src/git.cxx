@@ -69,9 +69,9 @@ bool prepare_git_dep(std::filesystem::path const& dependant, const git_info& inf
 	}
 	
 	// Checkout the specific revision
-	cmd = "git checkout " + info.rev;
+	cmd = "git -C " + clone_folder.generic_string() + " checkout " + info.rev;
 	spdlog::debug("Checking out {} in {}", info.rev, clone_folder.generic_string());
-	if (execute(cmd, clone_folder)) {
+	if (execute(cmd)) {
 		spdlog::error("Failed to checkout {} in {}", info.rev,
 				clone_folder.generic_string());
 		return false;
