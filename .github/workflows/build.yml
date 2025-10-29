@@ -90,6 +90,16 @@ jobs:
         with:
           path: ./artifacts
 
+      - name: Prepare Binaries
+        run: |
+          rm -rf ./release
+          mkdir -p ./release
+          cp -v ./artifacts/valet-macos/valet ./release/valet-macos
+          cp -v ./artifacts/valet-linux/valet ./release/valet-linux
+          cp -v ./artifacts/valet-windows/valet.exe ./release/valet-windows.exe
+          chmod +x ./release/valet-macos ./release/valet-linux
+          ls -lh ./release/
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -98,7 +108,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ./artifacts/valet-macos/valet
-            ./artifacts/valet-linux/valet
-            ./artifacts/valet-windows/valet.exe
+            ./release/valet-macos
+            ./release/valet-linux
+            ./release/valet-windows.exe
           generate_release_notes: true
+          fail_on_unmatched_files: true
