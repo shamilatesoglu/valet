@@ -39,11 +39,11 @@ struct CompileCommand : Command {
 struct LinkCommand : Command {
 	Package package;
 	std::vector<std::filesystem::path> obj_files;
-	std::unordered_set<Package> dependencies;
+	std::vector<Package> dependencies; // Ordered for proper static library linking
 	std::filesystem::path binary_path;
 	std::string string() const override;
 	LinkCommand(Package const& package, std::vector<std::filesystem::path> const& obj_files,
-		    std::unordered_set<Package> const& dependencies,
+		    std::vector<Package> const& dependencies,
 		    std::filesystem::path const& output_folder);
 	virtual ~LinkCommand() = default;
 };

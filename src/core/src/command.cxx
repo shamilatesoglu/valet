@@ -66,7 +66,7 @@ std::string CompileCommand::string() const
 
 LinkCommand::LinkCommand(Package const& package,
 			 std::vector<std::filesystem::path> const& obj_files,
-			 std::unordered_set<Package> const& dependencies,
+			 std::vector<Package> const& dependencies,
 			 std::filesystem::path const& output_folder)
     : package(package), obj_files(obj_files), dependencies(dependencies),
       binary_path(output_folder / package.id / package.name)

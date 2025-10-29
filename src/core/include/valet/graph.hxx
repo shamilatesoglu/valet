@@ -159,6 +159,40 @@ public:
 		return all_deps;
 	}
 
+	// Returns all dependencies in reverse topological order (dependencies last)
+	// This is the correct order for linking static libraries
+	std::vector<T> all_deps_sorted(T const& node) const
+	{
+		auto deps = all_deps(node);
+		if (deps.empty())
+			return {};
+		
+		// Build a subgraph containing only the dependencies
+		DependencyGraph<T> subgraph;
+		for (auto const& dep : deps) {
+			subgraph.add(dep);
+		}
+		for (auto const& dep : deps) {
+			for (auto const& transitive_dep : immediate_deps(dep)) {
+				if (deps.contains(transitive_dep)) {
+					subgraph.depend(dep, transitive_dep);
+				}
+			}
+		}
+		
+		// Return topologically sorted dependencies (reverse order for linking)
+		auto sorted_opt = subgraph.sorted();
+		if (!sorted_opt) {
+			spdlog::error("Failed to sort dependencies for node {}", std::string(node));
+			return {};
+		}
+		
+		// Reverse the order: dependencies should come last for static library linking
+		std::vector<T> result = *sorted_opt;
+		std::reverse(result.begin(), result.end());
+		return result;
+	}
+
 	std::unordered_set<T> immediate_dependants(T const& dependence) const
 	{
 		std::unordered_set<T> dependants;

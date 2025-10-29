@@ -300,7 +300,7 @@ void BuildPlan::group(Package const& package, std::vector<CompileCommand> const&
 	for (auto const& cc : package_cc) {
 		obj_files.push_back(cc.obj_file);
 	}
-	auto lc = LinkCommand(package, obj_files, package_graph.all_deps(package), build_folder);
+	auto lc = LinkCommand(package, obj_files, package_graph.all_deps_sorted(package), build_folder);
 	link_commands.push_back(lc);
 }
 
