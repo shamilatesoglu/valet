@@ -32,13 +32,6 @@ jobs:
           submodules: recursive
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup LLVM (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: KyleMayes/install-llvm-action@v2.0.8
-        with:
-          version: "21"
-          directory: ${{ runner.temp }}/llvm
-
       - name: Configure CMake
         run: cmake -S . -B ./cmake_build/ -DCMAKE_BUILD_TYPE=Release
 
@@ -47,7 +40,9 @@ jobs:
 
       - name: Bootstrap Test
         shell: bash
-        run: ${{ matrix.executable_path }} -v build
+        run: |
+          clang++ --version
+          ${{ matrix.executable_path }} -v build
 
       - name: Build Test Projects
         shell: bash
