@@ -1,4 +1,4 @@
-#define VALET_VERSION "0.1"
+#define VALET_VERSION "0.1.0"
 
 // valet
 #include <valet/build.hxx>

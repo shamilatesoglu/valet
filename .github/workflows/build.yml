@@ -7,9 +7,23 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: macos-latest
+            artifact_name: valet-macos
+            executable_path: ./cmake_build/valet
+          - os: ubuntu-latest
+            artifact_name: valet-linux
+            executable_path: ./cmake_build/valet
+          - os: windows-latest
+            artifact_name: valet-windows
+            executable_path: ./cmake_build/Release/valet.exe
+    
+    runs-on: ${{ matrix.os }}
 
-    name: "Build valet"
+    name: "Build valet on ${{ matrix.os }}"
 
     steps:
       - name: Checkout
@@ -25,16 +39,64 @@ jobs:
         run: cmake --build ./cmake_build/ --config Release
 
       - name: Bootstrap Test
-        run: ./cmake_build/valet -v build
+        shell: bash
+        run: ${{ matrix.executable_path }} -v build
 
       - name: Build Test Projects
+        shell: bash
         run: |
-          ./cmake_build/valet -v build -s test/test_projects/deep_deps/
-          ./cmake_build/valet -v build -s test/test_projects/primes/
-          ./cmake_build/valet -v build -s test/test_projects/primes_remote_dep/
-          ./cmake_build/valet -v build -s test/test_projects/eratosthenes_dylib/
-          ./cmake_build/valet -v build -s test/test_projects/header_only_deps/check_even
+          ${{ matrix.executable_path }} -v build -s test/test_projects/deep_deps/
+          ${{ matrix.executable_path }} -v build -s test/test_projects/primes/
+          ${{ matrix.executable_path }} -v build -s test/test_projects/primes_remote_dep/
+          ${{ matrix.executable_path }} -v build -s test/test_projects/eratosthenes_dylib/
+          ${{ matrix.executable_path }} -v build -s test/test_projects/header_only_deps/check_even
       
       - name: Run Unit Tests
+        shell: bash
         run: |
-          ./cmake_build/valet -v run -s test/valet_tests/
+          ${{ matrix.executable_path }} -v run -s test/valet_tests/
+
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(${{ matrix.executable_path }} --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.executable_path }}
+          if-no-files-found: error
+
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          name: Release v${{ needs.build.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            ./artifacts/valet-macos/valet
+            ./artifacts/valet-linux/valet
+            ./artifacts/valet-windows/valet.exe
+          generate_release_notes: true
