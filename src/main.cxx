@@ -4,6 +4,7 @@
 #include <valet/build.hxx>
 #include <valet/install.hxx>
 #include <valet/stopwatch.hxx>
+#include <valet/term.hxx>
 
 // external
 #include <spdlog/spdlog.h>
@@ -12,6 +13,7 @@
 // std
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <iostream>
 #include <optional>
 #include <sstream>
@@ -172,7 +174,8 @@ int main(int argc, char* argv[])
 				spdlog::error("Install failed");
 				return 1;
 			}
-			spdlog::info("Install succeeded");
+			valet::term::status("Installed", source_path_opt->generic_string(),
+					    valet::term::Style::Cyan);
 		}
 		return 0;
 	}
@@ -199,7 +202,10 @@ int main(int argc, char* argv[])
 			spdlog::error("Build failed");
 			return 1;
 		}
-		spdlog::info("Build succeeded ({})", stopwatch.elapsed_str());
+		valet::term::status(
+		    "Finished", std::format("{} target(s) in {}",
+					    build.get<bool>("release") ? "release" : "debug",
+					    stopwatch.elapsed_str()));
 		return 0;
 	}
 	if (program.is_subcommand_used("run")) {
@@ -252,7 +258,9 @@ int main(int argc, char* argv[])
 			spdlog::error("Tests failed");
 			return 1;
 		}
-		spdlog::info("All tests passed ({})", stopwatch.elapsed_str());
+		valet::term::status("Finished",
+				    std::format("all tests passed in {}",
+						stopwatch.elapsed_str()));
 		return 0;
 	}
 

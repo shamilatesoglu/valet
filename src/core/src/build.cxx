@@ -5,6 +5,7 @@
 #include "string_utils.hxx"
 #include "valet/stopwatch.hxx"
 #include "valet/command.hxx"
+#include "valet/term.hxx"
 #include "platform.hxx"
 #include "valet/thread_utils.hxx"
 
@@ -13,6 +14,7 @@
 
 // stl
 #include <unordered_set>
+#include <format>
 #include <sstream>
 #include <fstream>
 #include <regex>
@@ -34,7 +36,7 @@ bool build(BuildParams const& params, BuildPlan* out)
 {
 	auto build_folder = get_build_folder(params.project_folder, params.compile_options.release);
 	if (params.clean) {
-		spdlog::info("Cleaning build");
+		term::status("Cleaning", build_folder.generic_string());
 		std::filesystem::remove_all(build_folder);
 	}
 	util::Stopwatch sw;
@@ -82,7 +84,7 @@ bool run_target_by_name(BuildPlan const& plan, std::string const& name, std::str
 	auto exe_build_folder = get_build_folder(executable->folder, release);
 	std::filesystem::path exe_path = exe_build_folder / executable->id / executable->name;
 	auto exe_path_str = exe_path.generic_string() + executable->target_ext();
-	spdlog::info("Running target {}", exe_path_str);
+	term::status("Running", exe_path_str);
 	valet::platform::escape_cli_command(exe_path_str);
 	exe_path_str = "\"" + exe_path_str + "\"";
 	int ret = std::system((exe_path_str + " " + args).c_str());
@@ -185,7 +187,7 @@ bool test(TestParams& params)
 		}
 		TestResult result;
 		result.name = test_pkg->name;
-		spdlog::info("Building test target {}", test_pkg->name);
+		term::status("Building", std::format("test target {}", test_pkg->name));
 		BuildParams build_params = params.build;
 		build_params.project_folder = folder;
 		BuildPlan plan;
@@ -195,7 +197,7 @@ bool test(TestParams& params)
 			continue;
 		}
 		result.built = true;
-		spdlog::info("Running test target {}", test_pkg->name);
+		term::status("Running", std::format("test target {}", test_pkg->name));
 		result.passed = run_target_by_name(plan, test_pkg->name, "",
 						   params.build.compile_options.release);
 		results.push_back(result);
@@ -410,8 +412,9 @@ bool BuildPlan::execute()
 			auto output_folder = cmd.obj_file.parent_path();
 			if (!std::filesystem::exists(output_folder))
 				std::filesystem::create_directories(output_folder);
-			spdlog::info("Compiling ({}/{}) {}", i + 1, cc.size(),
-				     cmd.source_file.generic_string());
+			term::status("Compiling",
+				     std::format("[{}/{}] {}", i + 1, cc.size(),
+						 cmd.source_file.generic_string()));
 			util::Stopwatch csw;
 			auto ret = ::valet::execute(cmd);
 			double compilation_time = csw.elapsed();
@@ -432,8 +435,9 @@ bool BuildPlan::execute()
 		auto output_folder = cmd.binary_path.parent_path();
 		if (!std::filesystem::exists(output_folder))
 			std::filesystem::create_directories(output_folder);
-		spdlog::info("Linking ({}/{}) {}", i + 1, link_commands.size(),
-			     cmd.binary_path.generic_string());
+		term::status("Linking",
+			     std::format("[{}/{}] {}", i + 1, link_commands.size(),
+					 cmd.binary_path.generic_string()));
 		util::Stopwatch lsw;
 		auto ret = ::valet::execute(cmd);
 		double linking_time = lsw.elapsed();
