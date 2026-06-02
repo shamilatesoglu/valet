@@ -47,16 +47,16 @@ jobs:
       - name: Build Test Projects
         shell: bash
         run: |
-          ${{ matrix.executable_path }} -v build -s test/test_projects/deep_deps/
-          ${{ matrix.executable_path }} -v build -s test/test_projects/primes/
-          ${{ matrix.executable_path }} -v build -s test/test_projects/primes_remote_dep/
-          ${{ matrix.executable_path }} -v build -s test/test_projects/eratosthenes_dylib/
-          ${{ matrix.executable_path }} -v build -s test/test_projects/header_only_deps/check_even
+          ${{ matrix.executable_path }} -v build -s tests/test_projects/deep_deps/
+          ${{ matrix.executable_path }} -v build -s tests/test_projects/primes/
+          ${{ matrix.executable_path }} -v build -s tests/test_projects/primes_remote_dep/
+          ${{ matrix.executable_path }} -v build -s tests/test_projects/eratosthenes_dylib/
+          ${{ matrix.executable_path }} -v build -s tests/test_projects/header_only_deps/check_even
       
       - name: Run Unit Tests
         shell: bash
         run: |
-          ${{ matrix.executable_path }} -v run -s test/valet_tests/
+          ${{ matrix.executable_path }} -v run -s tests/valet_tests/
 
       - name: Get Version
         id: get_version
