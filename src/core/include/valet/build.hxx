@@ -30,6 +30,11 @@ struct RunParams {
 	std::optional<std::string> arguments;
 };
 
+struct TestParams {
+	BuildParams build; // project_folder is the package whose tests to run.
+	std::optional<std::string> filter; // If set, only run test targets whose name contains it.
+};
+
 struct BuildStats {
 	double total_time_s = 0.0;
 	double package_resolution_time_s = 0.0;
@@ -43,6 +48,12 @@ struct BuildStats {
 bool build(BuildParams const& params, class BuildPlan* out = nullptr);
 
 bool run(RunParams& params);
+
+bool test(TestParams& params);
+
+// Returns the folders of every test target package found directly under
+// `<package_folder>/tests` (either `tests` itself or its immediate subfolders).
+std::vector<std::filesystem::path> discover_test_targets(std::filesystem::path const& package_folder);
 
 class BuildPlan
 {

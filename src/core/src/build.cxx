@@ -121,6 +121,101 @@ bool run(RunParams& params)
 	return true;
 }
 
+std::vector<std::filesystem::path> discover_test_targets(std::filesystem::path const& package_folder)
+{
+	std::vector<std::filesystem::path> out;
+	auto tests_folder = package_folder / "tests";
+	if (!std::filesystem::exists(tests_folder) || !std::filesystem::is_directory(tests_folder))
+		return out;
+	auto is_package = [](std::filesystem::path const& folder) {
+		return std::filesystem::exists(folder / "valet.toml");
+	};
+	// `tests` may itself be a single test package...
+	if (is_package(tests_folder)) {
+		out.push_back(tests_folder);
+		return out;
+	}
+	// ...otherwise every immediate subfolder that is a package is a test target.
+	for (auto const& entry : std::filesystem::directory_iterator(tests_folder)) {
+		if (entry.is_directory() && is_package(entry.path()))
+			out.push_back(entry.path());
+	}
+	// Deterministic order regardless of filesystem iteration order.
+	std::sort(out.begin(), out.end());
+	return out;
+}
+
+bool test(TestParams& params)
+{
+	if (!find_package(params.build.project_folder)) {
+		spdlog::error("Unable to find a package under {}",
+			      params.build.project_folder.generic_string());
+		return false;
+	}
+	auto target_folders = discover_test_targets(params.build.project_folder);
+	if (target_folders.empty()) {
+		spdlog::info("No test targets found under {}",
+			     (params.build.project_folder / "tests").generic_string());
+		return true;
+	}
+
+	struct TestResult {
+		std::string name;
+		bool built = false;
+		bool passed = false;
+	};
+	std::vector<TestResult> results;
+	for (auto const& folder : target_folders) {
+		auto test_pkg = find_package(folder);
+		if (!test_pkg) {
+			spdlog::error("Failed to parse test target at {}", folder.generic_string());
+			results.push_back({folder.filename().generic_string(), false, false});
+			continue;
+		}
+		if (params.filter &&
+		    test_pkg->name.find(*params.filter) == std::string::npos) {
+			spdlog::trace("Skipping test target {} (does not match filter '{}')",
+				      test_pkg->name, *params.filter);
+			continue;
+		}
+		if (test_pkg->type != Package::Type::Application) {
+			spdlog::warn("Test target {} is not an executable ('bin'); skipping",
+				     test_pkg->name);
+			continue;
+		}
+		TestResult result;
+		result.name = test_pkg->name;
+		spdlog::info("Building test target {}", test_pkg->name);
+		BuildParams build_params = params.build;
+		build_params.project_folder = folder;
+		BuildPlan plan;
+		if (!build(build_params, &plan)) {
+			spdlog::error("Failed to build test target {}", test_pkg->name);
+			results.push_back(result);
+			continue;
+		}
+		result.built = true;
+		spdlog::info("Running test target {}", test_pkg->name);
+		result.passed = run_target_by_name(plan, test_pkg->name, "",
+						   params.build.compile_options.release);
+		results.push_back(result);
+	}
+
+	size_t passed = 0;
+	std::stringstream summary;
+	summary << "\nTest summary:\n";
+	for (auto const& result : results) {
+		std::string status =
+		    !result.built ? "BUILD FAIL" : (result.passed ? "ok" : "FAILED");
+		if (result.built && result.passed)
+			++passed;
+		summary << "  " << std::setw(32) << std::left << result.name << status << "\n";
+	}
+	summary << "\n" << passed << "/" << results.size() << " test targets passed\n";
+	spdlog::info("{}", summary.str());
+	return passed == results.size();
+}
+
 void collect_source_files(std::filesystem::path const& folder,
 			  std::vector<std::filesystem::path>& out)
 {

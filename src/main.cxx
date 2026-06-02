@@ -1,4 +1,4 @@
-#define VALET_VERSION "0.1.0"
+#define VALET_VERSION "0.2.0"
 
 // valet
 #include <valet/build.hxx>
@@ -114,6 +114,29 @@ int main(int argc, char* argv[])
 	    .help("Package to install");
 	program.add_subparser(install);
 
+	argparse::ArgumentParser test("test", VALET_VERSION);
+	test.add_description(
+	    "Builds and runs the test targets found under the 'tests' folder of a package. "
+	    "Each package under 'tests' is a test target; it declares its own dependencies "
+	    "(e.g. a path dependency back to the package under test).");
+	test.add_argument("--source", "-s")
+	    .default_value(std::string("./"))
+	    .help("Root folder of the package whose tests to run");
+	test.add_argument("--release", "-r")
+	    .default_value(false)
+	    .implicit_value(true)
+	    .help("Build and run tests in release mode with optimizations");
+	test.add_argument("--clean").default_value(false).implicit_value(true).help(
+	    "Clean build folder");
+	test.add_argument("--multi-process-count", "-mp")
+	    .default_value(0u)
+	    .scan<'u', uint32_t>()
+	    .help("Number of compiler instances to run simultaneously");
+	test.add_argument("filter")
+	    .nargs(argparse::nargs_pattern::optional)
+	    .help("Only run test targets whose name contains this string");
+	program.add_subparser(test);
+
 	try {
 		program.parse_args(argc, argv);
 	} catch (const std::runtime_error& err) {
@@ -207,6 +230,29 @@ int main(int argc, char* argv[])
 			spdlog::error("Run failed");
 			return 1;
 		}
+		return 0;
+	}
+
+	if (program.is_subcommand_used("test")) {
+		valet::util::Stopwatch stopwatch;
+		auto project_folder_opt = path_from_str(test.get("source"), true, true);
+		if (!project_folder_opt) {
+			return 1;
+		}
+		valet::TestParams params{};
+		params.build.project_folder = *project_folder_opt;
+		params.build.compile_options.release = test.get<bool>("release");
+		params.build.compile_options.mp_count = test.get<uint32_t>("multi-process-count");
+		params.build.clean = test.get<bool>("clean");
+		params.build.dry_run = program.get<bool>("dry-run");
+		if (test.is_used("filter")) {
+			params.filter = test.get<std::string>("filter");
+		}
+		if (!valet::test(params)) {
+			spdlog::error("Tests failed");
+			return 1;
+		}
+		spdlog::info("All tests passed ({})", stopwatch.elapsed_str());
 		return 0;
 	}
 

@@ -7,7 +7,7 @@ An attempt on a simple, fast and easy to use C++ build system, inspired by Rust'
 - [ ] Statically linking against dynamic libraries
 - [x] Executable projects
 - [ ] Prebuilt library dependencies (both static and dynamic)
-- [ ] Test targets
+- [x] Test targets
 - [ ] Benchmark targets
 - [x] Compilation stats
 - [ ] Compilation cache
@@ -26,6 +26,26 @@ An attempt on a simple, fast and easy to use C++ build system, inspired by Rust'
 
 ### Things To Think About
 - [ ] Daemon service compiling in the background when a file changed (to optimize iteration times)
+
+## Testing
+Any package placed under a package's `tests` folder is a test target. A test target is
+just a normal package (`type = "bin"`) that declares its own dependencies — typically a
+path dependency back to the package under test:
+
+```
+mylib/
+  valet.toml            # type = "lib", public_includes = ["./include"]
+  include/mylib.h
+  src/mylib.cxx
+  tests/
+    mylib_tests/
+      valet.toml        # type = "bin", depends on { path = "../.." }
+      src/main.cxx
+```
+
+`valet test` builds and runs every test target, then prints a pass/fail summary. A test
+target passes when its binary exits with code 0, so any framework (or none) works. Run a
+subset with `valet test <filter>`, which keeps only targets whose name contains `<filter>`.
 
 ---
 
